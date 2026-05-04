@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Loppe or Droppe",
+    "slug": "loppe-or-droppe",
+    "scheme": "loppe-or-droppe",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.loppeordroppe.app"
+    },
+    "android": {
+      "package": "com.loppeordroppe.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization"
+    ]
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "common": {
+    "appName": "Loppe or Droppe",
+    "navSettings": "設定",
+    "navSaved": "保存したレポート",
+    "navBackHome": "チャットに戻る",
+    "cancel": "キャンセル",
+    "send": "送信",
+    "ok": "OK",
+    "listBullet": "–",
+    "removeSymbol": "×"
+  },
+  "saved": {
+    "phase1Title": "保存したレポート",
+    "phase1Body": "レポートの保存機能は今後のバージョンで対応予定です。"
+  },
+  "settings": {
+    "title": "設定",
+    "languageSection": "言語",
+    "languageEnglish": "英語",
+    "languageJapanese": "日本語",
+    "languageCurrent": "現在の表示言語: {{label}}",
+    "modeBasic": "ベーシックモード（使用中）",
+    "modeSellerLocked": "出品者モード（ロック）"
+  },
+  "report": {
+    "mock": {
+      "analysis": {
+        "objectNameSingle": "装飾用の陶磁器オブジェクト",
+        "objectNameMulti": "ヴィンテージの陶磁器容器",
+        "shortDescription": "手仕上げのディテールとコレクター向けの魅力がうかがえる小さな装飾品です。",
+        "likelyCategory": "陶磁器・装飾品",
+        "likelyOrigin": "北ヨーロッパまたは日本",
+        "likelyStyle": "ミッドセンチュリー・モダン",
+        "likelyMaterial": "釉薬付き陶器"
+      },
+      "period": {
+        "label": "20世紀中頃",
+        "reasoning": "形状・表面仕上げ・経年変化から、戦後のスタジオまたは小ロット生産と整合する所見です。"
+      },
+      "condition": {
+        "obsMulti1": "全体的な表面の擦れは経年と整合しています。",
+        "obsMulti2": "提出された写真の範囲では大きな構造的損傷は確認できません。",
+        "obsSingle": "より多くの角度の写真がないと状態判断の信頼度は限定的です。"
+      },
+      "quality": {
+        "item1": "縁・角・取手・足部などの欠けを確認してください。",
+        "item2": "底部の製作者マーク、刻印、ラベル、署名の有無を確認してください。",
+        "item3": "ひび、修理、再塗装の有無を確認してください。"
+      },
+      "missingPhoto": {
+        "mark": "製作者マーク・刻印・署名または底部のアップ写真",
+        "back": "構造や摩耗を確認するための裏面／底面の写真",
+        "damage": "欠け・ひび・修理跡・染みのアップ写真"
+      },
+      "travel": {
+        "item1": "突出部の周囲に硬い支持材と緩衝材で梱包してください。",
+        "item2": "税関照会に備え、領収書と販売者情報を保管してください。"
+      },
+      "sellerQuestion": {
+        "item1": "製作者、工房、または前所有者について分かりますか？",
+        "item2": "修復や修繕の経歴はありますか？",
+        "item3": "価格交渉の余地はありますか？"
+      },
+      "decision": {
+        "reasonPortable": "携行性があり装飾的な魅力もあるため、より詳しく調べる価値があります。",
+        "reasonDkkAssumption": "販売通貨が未入力のため、提案上限価格は当面DKKを前提としています。",
+        "reasonWithSellerCurrency": "提案上限価格は入力された販売通貨を使用しています。",
+        "riskAttribution": "明確な製作者マークがないため帰属は暫定的です。",
+        "riskCondition": "状態の問題は評価額に大きく影響する可能性があります。"
+      }
+    },
+    "recommendation": {
+      "buy": "購入する",
+      "negotiate": "交渉する",
+      "pass": "見送る",
+      "research_more": "要調査"
+    },
+    "confidence": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "preview": {
+      "title": {
+        "initial": "初回の査定レポート",
+        "updated": "更新された査定レポート"
+      },
+      "summary": {
+        "initial": "はじめての査定結果をご確認ください。",
+        "answerUpdated": "ご回答をもとにレポートを更新しました。",
+        "photosUpdated": "追加の写真をもとにレポートを更新しました。"
+      },
+      "sellerPrice": "販売価格: {{price}} {{currency}}",
+      "maxPrice": "上限: {{price}} {{currency}}"
+    },
+    "detail": {
+      "notFound": {
+        "title": "レポートが見つかりません",
+        "body": "このレポートはアプリに読み込まれていません。",
+        "cta": "チャットに戻る"
+      },
+      "convertedPrice": {
+        "placeholderCaption": "価格換算は近日対応予定です。"
+      },
+      "section": {
+        "identity": "識別情報",
+        "period": "製作時期",
+        "condition": "状態と確認事項",
+        "decision": "購入判断",
+        "travelCautions": "持ち帰りの注意点",
+        "sellerQuestions": "販売者への質問"
+      },
+      "field": {
+        "objectName": "名称",
+        "shortDescription": "概要",
+        "likelyCategory": "カテゴリ",
+        "likelyOrigin": "産地",
+        "likelyStyle": "スタイル",
+        "likelyMaterial": "素材",
+        "conditionObservations": "状態の所見",
+        "qualityChecklist": "購入前の確認事項",
+        "missingPhotoChecklist": "追加で必要な写真",
+        "score": "持ち帰り価値",
+        "recommendation": "推奨アクション",
+        "sellerPrice": "販売者の希望価格",
+        "suggestedMaxPrice": "提案する上限価格",
+        "reasons": "購入理由",
+        "risks": "リスク",
+        "analysisConfidence": "分析の信頼度",
+        "periodLabel": "推定時代",
+        "periodYears": "年代",
+        "periodConfidence": "信頼度",
+        "periodReasoning": "根拠"
+      }
+    },
+    "sellerMode": {
+      "upsell": {
+        "headline": "出品者モードを有効にする",
+        "benefit1": "推定転売価格の範囲",
+        "benefit2": "現地市場と目標市場の比較",
+        "benefit3": "推定粗利と利益率",
+        "benefit4": "出品タイトルと説明文の提案",
+        "cta": "近日公開",
+        "comingSoonMessage": "このビルドでは出品者モードの課金と有効化はまだ利用できません。"
+      }
+    }
+  },
+  "chat": {
+    "header": {
+      "newAnalysis": "新しい査定",
+      "newAnalysisA11y": "新しい査定を開始",
+      "settingsA11y": "設定を開く",
+      "confirm": {
+        "title": "新しい査定を開始しますか？",
+        "message": "現在のレポートとチャットが削除されます。",
+        "startOver": "やり直す",
+        "cancel": "キャンセル"
+      }
+    },
+    "start": {
+      "requirePhotoPrompt": "品物の写真を追加してはじめましょう。精度の高いレポートには、正面・裏面／底部・製作者のマーク・縁端部・損傷箇所の写真が有効です。",
+      "photoRequiredReminder": "レポートを作成するには、先に写真を1枚以上添付してください。",
+      "addPhotoButton": "写真を追加"
+    },
+    "status": {
+      "analysing": "オブジェクトを分析しています…"
+    },
+    "error": {
+      "analysisFailed": "レポートを更新できませんでした。もう一度お試しください。"
+    },
+    "composer": {
+      "inputPlaceholder": "メッセージ\u2026",
+      "attachA11y": "写真を添付",
+      "sendA11y": "メッセージを送信",
+      "removePhotoA11y": "写真を削除"
+    },
+    "bubble": {
+      "photoCount_one": "写真1枚",
+      "photoCount_other": "写真{{count}}枚",
+      "photoAlt": "添付された写真"
+    },
+    "followUp": {
+      "askSellerPrice": "販売者の希望価格はいくらですか？",
+      "askSellerPriceReason": "価格の妥当性を評価するために必要です。",
+      "askBuyingCountry": "どこでこの品を購入しようとしていますか？",
+      "askBuyingCountryReason": "輸入規則や真贋の文脈に影響します。",
+      "askHomeCountry": "この品をどこへ持ち帰る、または売る予定ですか？",
+      "askHomeCountryReason": "持ち帰りコストと転売可能性の評価に必要です。",
+      "askMakersMarkPhoto": "製作者のマークのアップ写真を追加できますか？",
+      "askMakersMarkPhotoReason": "鮮明なマーク写真は識別精度を大幅に向上させます。",
+      "askConditionDetails": "欠け、ひび割れ、貫入、修理跡、染みなどは見えますか？",
+      "askConditionDetailsReason": "状態は価値とリスクに直接影響します。"
+    }
+  }
+}

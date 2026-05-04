@@ -1,0 +1,196 @@
+{
+  "common": {
+    "appName": "Loppe or Droppe",
+    "navSettings": "Settings",
+    "navSaved": "Saved reports",
+    "navBackHome": "Back to chat",
+    "cancel": "Cancel",
+    "send": "Send",
+    "ok": "OK",
+    "listBullet": "–",
+    "removeSymbol": "×"
+  },
+  "saved": {
+    "phase1Title": "Saved reports",
+    "phase1Body": "Saving reports will be available in a future update."
+  },
+  "settings": {
+    "title": "Settings",
+    "languageSection": "Language",
+    "languageEnglish": "English",
+    "languageJapanese": "Japanese",
+    "languageCurrent": "Current interface language: {{label}}",
+    "modeBasic": "Basic Mode (active)",
+    "modeSellerLocked": "Seller Mode (locked)"
+  },
+  "report": {
+    "mock": {
+      "analysis": {
+        "objectNameSingle": "Decorative ceramic object",
+        "objectNameMulti": "Vintage ceramic vessel",
+        "shortDescription": "A small decorative object with visible hand-finished details and collector appeal.",
+        "likelyCategory": "Ceramics and decorative objects",
+        "likelyOrigin": "Northern Europe or Japan",
+        "likelyStyle": "Mid-century modern",
+        "likelyMaterial": "Glazed ceramic"
+      },
+      "period": {
+        "label": "Mid-20th century",
+        "reasoning": "The form, surface finish, and visible wear are consistent with post-war studio or small-batch production."
+      },
+      "condition": {
+        "obsMulti1": "General surface wear appears consistent with age.",
+        "obsMulti2": "No major structural damage is visible in the supplied photos.",
+        "obsSingle": "Condition confidence is limited until more angles are supplied."
+      },
+      "quality": {
+        "item1": "Check for chips along rims, corners, handles, and feet.",
+        "item2": "Inspect the base for maker marks, stamps, labels, or hand signatures.",
+        "item3": "Ask whether any cracks, repairs, or repainting are present."
+      },
+      "missingPhoto": {
+        "mark": "Close-up of maker's mark, stamp, signature, or base",
+        "back": "Back or underside photo to inspect construction and wear",
+        "damage": "Close-up of any chips, cracks, repairs, or stains"
+      },
+      "travel": {
+        "item1": "Pack with rigid support and padding around protruding edges.",
+        "item2": "Keep receipts and seller details for customs questions when travelling."
+      },
+      "sellerQuestion": {
+        "item1": "Do you know the maker, studio, or previous owner?",
+        "item2": "Has the piece had any repairs or restoration?",
+        "item3": "Is the asking price negotiable?"
+      },
+      "decision": {
+        "reasonPortable": "The item appears portable and has enough decorative appeal to justify closer inspection.",
+        "reasonDkkAssumption": "Suggested max price assumes DKK until a seller currency is provided.",
+        "reasonWithSellerCurrency": "Suggested max price uses the seller currency supplied in context.",
+        "riskAttribution": "Attribution is provisional without a clear maker mark.",
+        "riskCondition": "Condition issues can materially change the valuation."
+      }
+    },
+    "recommendation": {
+      "buy": "Buy",
+      "negotiate": "Negotiate",
+      "pass": "Pass",
+      "research_more": "Research more"
+    },
+    "confidence": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "preview": {
+      "title": {
+        "initial": "Initial valuation report",
+        "updated": "Updated valuation report"
+      },
+      "summary": {
+        "initial": "Here is your first valuation snapshot.",
+        "answerUpdated": "I've updated the report with your answer.",
+        "photosUpdated": "I've updated the report with the new photos."
+      },
+      "sellerPrice": "Asking: {{price}} {{currency}}",
+      "maxPrice": "Max: {{price}} {{currency}}"
+    },
+    "detail": {
+      "notFound": {
+        "title": "Report not found",
+        "body": "This report is not loaded in the app anymore.",
+        "cta": "Back to chat"
+      },
+      "convertedPrice": {
+        "placeholderCaption": "Currency conversion coming soon."
+      },
+      "section": {
+        "identity": "Identity",
+        "period": "Period",
+        "condition": "Condition & Checklists",
+        "decision": "Buy Decision",
+        "travelCautions": "Travel Cautions",
+        "sellerQuestions": "Questions for the Seller"
+      },
+      "field": {
+        "objectName": "Object",
+        "shortDescription": "Description",
+        "likelyCategory": "Category",
+        "likelyOrigin": "Origin",
+        "likelyStyle": "Style",
+        "likelyMaterial": "Material",
+        "conditionObservations": "Condition observations",
+        "qualityChecklist": "Things to check before buying",
+        "missingPhotoChecklist": "Photos needed for a better report",
+        "score": "Worth bringing home",
+        "recommendation": "Recommendation",
+        "sellerPrice": "Seller asking price",
+        "suggestedMaxPrice": "Suggested max price",
+        "reasons": "Reasons to buy",
+        "risks": "Risks to consider",
+        "analysisConfidence": "Analysis confidence",
+        "periodLabel": "Estimated period",
+        "periodYears": "Date range",
+        "periodConfidence": "Confidence",
+        "periodReasoning": "Reasoning"
+      }
+    },
+    "sellerMode": {
+      "upsell": {
+        "headline": "Unlock Seller Mode",
+        "benefit1": "Estimated resale price range",
+        "benefit2": "Local-vs-target market comparison",
+        "benefit3": "Expected gross profit & margin",
+        "benefit4": "Suggested listing title & description",
+        "cta": "Coming soon",
+        "comingSoonMessage": "Seller Mode payments and unlock are not available in this build yet."
+      }
+    }
+  },
+  "chat": {
+    "header": {
+      "newAnalysis": "New analysis",
+      "newAnalysisA11y": "Start a new analysis",
+      "settingsA11y": "Open settings",
+      "confirm": {
+        "title": "Start a new analysis?",
+        "message": "The current report and chat will be discarded.",
+        "startOver": "Start over",
+        "cancel": "Cancel"
+      }
+    },
+    "start": {
+      "requirePhotoPrompt": "Upload a photo of the object to begin. For the best report, include the front, back/base, maker's mark, rim/edge, and any damaged areas.",
+      "photoRequiredReminder": "Please attach at least one photo before I can generate a report.",
+      "addPhotoButton": "Add a photo"
+    },
+    "status": {
+      "analysing": "Analysing the object…"
+    },
+    "error": {
+      "analysisFailed": "I could not update the report. Please try again."
+    },
+    "composer": {
+      "inputPlaceholder": "Message\u2026",
+      "attachA11y": "Attach photos",
+      "sendA11y": "Send message",
+      "removePhotoA11y": "Remove photo"
+    },
+    "bubble": {
+      "photoCount_one": "1 photo",
+      "photoCount_other": "{{count}} photos",
+      "photoAlt": "Attached photo"
+    },
+    "followUp": {
+      "askSellerPrice": "What is the seller asking price?",
+      "askSellerPriceReason": "Helps estimate whether the price is fair.",
+      "askBuyingCountry": "Where are you buying this item?",
+      "askBuyingCountryReason": "Affects import rules and authenticity context.",
+      "askHomeCountry": "Where would you bring or sell it?",
+      "askHomeCountryReason": "Needed to estimate carry-home cost and resale potential.",
+      "askMakersMarkPhoto": "Can you upload a close-up of the maker\u2019s mark?",
+      "askMakersMarkPhotoReason": "A clear mark photo greatly improves attribution accuracy.",
+      "askConditionDetails": "Do you see any chips, cracks, crazing, repairs, or stains?",
+      "askConditionDetailsReason": "Condition directly affects value and risk."
+    }
+  }
+}
