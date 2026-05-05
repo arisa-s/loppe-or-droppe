@@ -1,10 +1,10 @@
 import { View, Text, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import Screen from "../../components/ui/Screen";
-import Button from "../../components/ui/Button";
-import ReportDetail from "../../components/report/ReportDetail";
-import { useReportById } from "../../features/report/report.provider";
+import Screen from "../../../components/ui/Screen";
+import Button from "../../../components/ui/Button";
+import ReportDetail from "../../../components/report/ReportDetail";
+import { useReportById } from "../../../features/report/report.provider";
 
 function normalizeIdParam(value: string | string[] | undefined): string {
   if (typeof value === "string") {

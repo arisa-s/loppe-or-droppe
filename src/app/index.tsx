@@ -13,24 +13,36 @@ import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ChatComposer from "../components/chat/ChatComposer";
 import ChatMessageBubble from "../components/chat/ChatMessageBubble";
-import PhotoAttachmentPreview from "../components/chat/PhotoAttachmentPreview";
-import RequiredPhotoStart from "../components/chat/RequiredPhotoStart";
+import ChatReportHeader from "../components/chat/ChatReportHeader";
+import PhotoPickerPanel from "../components/chat/PhotoPickerPanel";
+import PhotoTipsStrip from "../components/chat/PhotoTipsStrip";
 import { useChat } from "../features/chat/chat.provider";
 import type { ChatMessage } from "../features/chat/chat.types";
 import {
   useLatestReport,
   useReportDispatch,
 } from "../features/report/report.provider";
-import { generateInitial } from "../features/report/report.service";
-import { applyAnswer, applyPhotos } from "../features/report/report.updateService";
+import {
+  analyze,
+  inferCountryCode,
+  inferCurrency,
+  parsePrice,
+} from "../features/report/report.service";
+import {
+  applyAnswer,
+  applyQuestionSkip,
+  applyPhotos,
+} from "../features/report/report.updateService";
+import { getPostReportChatQuestions } from "../features/report/report.mockData";
 import type {
   Answer,
   FollowUpQuestion,
-  ObjectReport,
+  Purpose,
   UserContext,
+  UserDecision,
 } from "../features/report/report.types";
 import { webMaxWidthContentStyle } from "../lib/layout";
-import { pickPhotos } from "../lib/photos";
+import { pickPhotos, takePhoto } from "../lib/photos";
 
 const priorityRank: Record<FollowUpQuestion["priority"], number> = {
   high: 0,
@@ -45,7 +57,11 @@ function rankPriority(priority: FollowUpQuestion["priority"]): number {
 function findActiveQuestion(messages: ChatMessage[]): FollowUpQuestion | null {
   let active: FollowUpQuestion | null = null;
   messages.forEach((message) => {
-    if (message.kind !== "question" || message.question.answered) {
+    if (
+      message.kind !== "question" ||
+      message.question.answered ||
+      message.question.skipped
+    ) {
       return;
     }
     if (
@@ -58,60 +74,32 @@ function findActiveQuestion(messages: ChatMessage[]): FollowUpQuestion | null {
   return active;
 }
 
-function knownQuestionIds(messages: ChatMessage[]): Set<string> {
-  return new Set(
-    messages
-      .filter((message) => message.kind === "question")
-      .map((message) => message.question.id),
+function latestPreReportPhotoUris(messages: ChatMessage[]): string[] | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.kind === "photo_upload") {
+      return message.imageUris;
+    }
+  }
+  return null;
+}
+
+function questionHistory(messages: ChatMessage[]): FollowUpQuestion[] {
+  return messages
+    .filter((message): message is Extract<ChatMessage, { kind: "question" }> => {
+      return message.kind === "question";
+    })
+    .map((message) => message.question);
+}
+
+function hasQuestionMessage(messages: ChatMessage[], questionId: string): boolean {
+  return messages.some(
+    (message) => message.kind === "question" && message.question.id === questionId,
   );
 }
 
-function parsePrice(text: string): number | undefined {
-  const match = text.replace(",", ".").match(/\d+(?:\.\d+)?/);
-  if (match === null) {
-    return undefined;
-  }
-  const value = Number.parseFloat(match[0]);
-  return Number.isFinite(value) ? value : undefined;
-}
-
-function inferCurrency(text: string): string | undefined {
-  const upper = text.toUpperCase();
-  const currencyMatch = upper.match(/\b[A-Z]{3}\b/);
-  if (currencyMatch !== null) {
-    return currencyMatch[0];
-  }
-  if (upper.includes("¥") || upper.includes("YEN")) {
-    return "JPY";
-  }
-  if (upper.includes("KR") || upper.includes("DKK")) {
-    return "DKK";
-  }
-  if (upper.includes("$") || upper.includes("USD")) {
-    return "USD";
-  }
-  if (upper.includes("€") || upper.includes("EUR")) {
-    return "EUR";
-  }
-  return undefined;
-}
-
-function inferCountryCode(text: string): string | undefined {
-  const trimmed = text.trim();
-  if (/^[A-Za-z]{2}$/.test(trimmed)) {
-    return trimmed.toUpperCase();
-  }
-
-  const lower = trimmed.toLowerCase();
-  if (lower.includes("denmark") || lower.includes("danmark")) return "DK";
-  if (lower.includes("japan") || lower.includes("日本")) return "JP";
-  if (lower.includes("sweden")) return "SE";
-  if (lower.includes("norway")) return "NO";
-  if (lower.includes("germany")) return "DE";
-  if (lower.includes("france")) return "FR";
-  if (lower.includes("united kingdom") || lower.includes("uk")) return "GB";
-  if (lower.includes("united states") || lower.includes("usa")) return "US";
-  return undefined;
+function isPurpose(value: string): value is Purpose {
+  return ["keep", "gift", "decorate", "research", "resell"].includes(value);
 }
 
 function buildContextPatch(
@@ -124,7 +112,18 @@ function buildContextPatch(
     const patch: Partial<UserContext> = {};
     if (sellerPrice !== undefined) patch.sellerPrice = sellerPrice;
     if (sellerCurrency !== undefined) patch.sellerCurrency = sellerCurrency;
-    return sellerPrice !== undefined || sellerCurrency !== undefined ? patch : undefined;
+    return sellerPrice !== undefined || sellerCurrency !== undefined
+      ? patch
+      : undefined;
+  }
+
+  if (question.id === "seller-currency") {
+    const sellerCurrency = inferCurrency(text);
+    return sellerCurrency === undefined ? undefined : { sellerCurrency };
+  }
+
+  if (question.id === "purpose" && isPurpose(text)) {
+    return { purpose: text };
   }
 
   const countryCode = inferCountryCode(text);
@@ -152,21 +151,6 @@ function buildAnswer(input: {
   };
 }
 
-function dispatchNewQuestions(input: {
-  report: ObjectReport;
-  messages: ChatMessage[];
-  dispatch: ReturnType<typeof useChat>["dispatch"];
-}) {
-  const existingQuestionIds = knownQuestionIds(input.messages);
-  input.report.followUpQuestions
-    .filter(
-      (question) => !question.answered && !existingQuestionIds.has(question.id),
-    )
-    .forEach((question) => {
-      input.dispatch({ type: "ADD_QUESTION", question });
-    });
-}
-
 export default function ChatScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -175,18 +159,9 @@ export default function ChatScreen() {
   const report = useLatestReport();
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const [isAnalysing, setIsAnalysing] = useState(false);
-  const [confirmNewAnalysisVisible, setConfirmNewAnalysisVisible] = useState(false);
-  const didSeedInitialPrompt = useRef(false);
-
-  useEffect(() => {
-    if (!didSeedInitialPrompt.current && state.messages.length === 0) {
-      didSeedInitialPrompt.current = true;
-      dispatch({
-        type: "ADD_ASSISTANT_TEXT",
-        textKey: "chat.start.requirePhotoPrompt",
-      });
-    }
-  }, [dispatch, state.messages.length]);
+  const [confirmNewAnalysisVisible, setConfirmNewAnalysisVisible] =
+    useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (state.messages.length > 0) {
@@ -194,18 +169,104 @@ export default function ChatScreen() {
     }
   }, [state.messages.length]);
 
-  const handlePickPhotos = useCallback(async () => {
+  const handleTogglePicker = useCallback(() => {
+    setPickerOpen((prev) => !prev);
+  }, []);
+
+  const handlePickerTakePhoto = useCallback(async () => {
+    setPickerOpen(false);
+    const uris = await takePhoto();
+    if (uris.length > 0) {
+      dispatch({ type: "STAGE_PHOTOS", uris });
+    }
+  }, [dispatch]);
+
+  const handlePickerSelectFromLibrary = useCallback(async () => {
+    setPickerOpen(false);
     const uris = await pickPhotos();
     if (uris.length > 0) {
       dispatch({ type: "STAGE_PHOTOS", uris });
     }
   }, [dispatch]);
 
+  const handlePickerSelectRecent = useCallback(
+    (uri: string) => {
+      setPickerOpen(false);
+      dispatch({ type: "STAGE_PHOTOS", uris: [uri] });
+    },
+    [dispatch],
+  );
+
   const handleRemovePhoto = useCallback(
     (uri: string) => {
       dispatch({ type: "REMOVE_STAGED_PHOTO", uri });
     },
     [dispatch],
+  );
+
+  const maybeAskPostReportQuestion = useCallback(
+    (nextReport: NonNullable<typeof report>) => {
+      const nextQuestion = getPostReportChatQuestions(nextReport).find(
+        (question) => !hasQuestionMessage(state.messages, question.id),
+      );
+      if (nextQuestion !== undefined) {
+        dispatch({ type: "ADD_QUESTION", question: nextQuestion });
+      }
+    },
+    [dispatch, state.messages],
+  );
+
+  const runAnalyze = useCallback(
+    async (input: {
+      photos: string[];
+      userContext: UserContext;
+      freeText?: string;
+      previousQuestions?: FollowUpQuestion[];
+    }) => {
+      try {
+        setIsAnalysing(true);
+        const result = await analyze(input);
+
+        if (result.kind === "report") {
+          reportDispatch({ type: "SET_REPORT", report: result.report });
+          dispatch({ type: "CLEAR_PENDING_CONTEXT" });
+          dispatch({ type: "ADD_REPORT_PREVIEW", reportId: result.report.id });
+          dispatch({
+            type: "ADD_ASSISTANT_TEXT",
+            textKey: "report.improvement.summary.available",
+            textOptions: {
+              confidence: t(`report.confidence.${result.report.analysis.confidence}`),
+            },
+          });
+          return;
+        }
+
+        dispatch({
+          type: "MERGE_PENDING_CONTEXT",
+          contextPatch: result.userContext,
+        });
+        const firstQuestion = result.questions.find(
+          (question) => !hasQuestionMessage(state.messages, question.id),
+        );
+        if (firstQuestion !== undefined) {
+          if (questionHistory(state.messages).length === 0) {
+            dispatch({
+              type: "ADD_ASSISTANT_TEXT",
+              textKey: "chat.followUp.preflightIntro",
+            });
+          }
+          dispatch({ type: "ADD_QUESTION", question: firstQuestion });
+        }
+      } catch {
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "chat.error.analysisFailed",
+        });
+      } finally {
+        setIsAnalysing(false);
+      }
+    },
+    [dispatch, reportDispatch, state.messages, t],
   );
 
   const handleSend = useCallback(async () => {
@@ -215,17 +276,55 @@ export default function ChatScreen() {
     const hasPhotos = state.pendingPhotos.length > 0;
     if (!hasDraft && !hasPhotos) return;
 
-    if (report === null && !hasPhotos) {
-      dispatch({
-        type: "ADD_ASSISTANT_TEXT",
-        textKey: "chat.start.photoRequiredReminder",
+    setPickerOpen(false);
+
+    const text = state.draft.trim();
+    const activeQuestion = findActiveQuestion(state.messages);
+
+    if (report === null && activeQuestion !== null && hasDraft) {
+      const photos = latestPreReportPhotoUris(state.messages);
+      if (photos === null) return;
+      const answer = buildAnswer({
+        question: activeQuestion,
+        text,
+        imageUris: [],
+      });
+      const nextContext = {
+        ...state.pendingContext,
+        ...(answer.contextPatch ?? {}),
+      };
+      const previousQuestions = [
+        ...questionHistory(state.messages),
+        { ...activeQuestion, answered: true, skipped: false },
+      ];
+      if (answer.contextPatch !== undefined) {
+        dispatch({
+          type: "MERGE_PENDING_CONTEXT",
+          contextPatch: answer.contextPatch,
+        });
+      }
+      dispatch({ type: "ANSWER_QUESTION", answer });
+      dispatch({ type: "SET_DRAFT", draft: "" });
+      await runAnalyze({
+        photos,
+        userContext: nextContext,
+        previousQuestions,
       });
       return;
     }
 
-    const text = state.draft.trim();
+    if (report === null && !hasPhotos) {
+      // Allow a pre-photo text message; remind user to add photos for analysis
+      dispatch({ type: "ADD_USER_TEXT", text });
+      dispatch({ type: "SET_DRAFT", draft: "" });
+      dispatch({
+        type: "ADD_ASSISTANT_TEXT",
+        textKey: "chat.start.photoRequiredFollowUp",
+      });
+      return;
+    }
+
     const photos = [...state.pendingPhotos];
-    const activeQuestion = findActiveQuestion(state.messages);
     const isSubmittingAnswer =
       report !== null &&
       activeQuestion !== null &&
@@ -245,14 +344,12 @@ export default function ChatScreen() {
         if (hasDraft) {
           dispatch({ type: "ADD_USER_TEXT", text });
         }
-        const initial = await generateInitial({ photos, userContext: {} });
-        reportDispatch({ type: "SET_REPORT", report: initial });
-        dispatch({ type: "ADD_REPORT_PREVIEW", reportId: initial.id });
-        dispatch({
-          type: "ADD_ASSISTANT_TEXT",
-          textKey: "report.preview.summary.initial",
+        await runAnalyze({
+          photos,
+          userContext: state.pendingContext,
+          ...(hasDraft ? { freeText: text } : {}),
+          previousQuestions: [],
         });
-        dispatchNewQuestions({ report: initial, messages: state.messages, dispatch });
         return;
       }
 
@@ -262,15 +359,18 @@ export default function ChatScreen() {
           text,
           imageUris: photos,
         });
-        dispatch({ type: "ANSWER_QUESTION", answer });
+        dispatch({ type: "MARK_QUESTION_ANSWERED", questionId: activeQuestion.id });
         const next = await applyAnswer(report, answer);
         reportDispatch({ type: "SET_REPORT", report: next });
         dispatch({ type: "ADD_REPORT_PREVIEW", reportId: next.id });
         dispatch({
           type: "ADD_ASSISTANT_TEXT",
           textKey: "report.preview.summary.answerUpdated",
+          textOptions: {
+            confidence: t(`report.confidence.${next.analysis.confidence}`),
+          },
         });
-        dispatchNewQuestions({ report: next, messages: state.messages, dispatch });
+        maybeAskPostReportQuestion(next);
         return;
       }
 
@@ -285,8 +385,11 @@ export default function ChatScreen() {
         dispatch({
           type: "ADD_ASSISTANT_TEXT",
           textKey: "report.preview.summary.photosUpdated",
+          textOptions: {
+            confidence: t(`report.confidence.${next.analysis.confidence}`),
+          },
         });
-        dispatchNewQuestions({ report: next, messages: state.messages, dispatch });
+        maybeAskPostReportQuestion(next);
       }
     } catch {
       dispatch({
@@ -301,10 +404,145 @@ export default function ChatScreen() {
     state.draft,
     state.pendingPhotos,
     state.messages,
+    state.pendingContext,
     report,
     reportDispatch,
     dispatch,
+    maybeAskPostReportQuestion,
+    runAnalyze,
+    t,
   ]);
+
+  const handleAnswerQuestion = useCallback(
+    async (
+      question: FollowUpQuestion,
+      input: { text?: string; imageUris?: string[] },
+    ) => {
+      if (isAnalysing) return;
+      const textAnswer = input.text?.trim() ?? "";
+      const imageUris = input.imageUris ?? [];
+      if (textAnswer.length === 0 && imageUris.length === 0) return;
+
+      const answer = buildAnswer({
+        question,
+        text: textAnswer,
+        imageUris,
+      });
+
+      if (report === null) {
+        const photos = latestPreReportPhotoUris(state.messages);
+        if (photos === null) return;
+        const nextContext = {
+          ...state.pendingContext,
+          ...(answer.contextPatch ?? {}),
+        };
+        const previousQuestions = [
+          ...questionHistory(state.messages),
+          { ...question, answered: true, skipped: false },
+        ];
+        if (answer.contextPatch !== undefined) {
+          dispatch({
+            type: "MERGE_PENDING_CONTEXT",
+            contextPatch: answer.contextPatch,
+          });
+        }
+        dispatch({ type: "ANSWER_QUESTION", answer });
+        await runAnalyze({
+          photos,
+          userContext: nextContext,
+          previousQuestions,
+        });
+        return;
+      }
+
+      try {
+        setIsAnalysing(true);
+        dispatch({ type: "MARK_QUESTION_ANSWERED", questionId: question.id });
+        const next = await applyAnswer(report, answer);
+        reportDispatch({ type: "SET_REPORT", report: next });
+        dispatch({ type: "ADD_REPORT_PREVIEW", reportId: next.id });
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "report.preview.summary.answerUpdated",
+          textOptions: {
+            confidence: t(`report.confidence.${next.analysis.confidence}`),
+          },
+        });
+        maybeAskPostReportQuestion(next);
+      } catch {
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "chat.error.analysisFailed",
+        });
+      } finally {
+        setIsAnalysing(false);
+      }
+    },
+    [
+      dispatch,
+      isAnalysing,
+      maybeAskPostReportQuestion,
+      report,
+      reportDispatch,
+      runAnalyze,
+      state.messages,
+      state.pendingContext,
+      t,
+    ],
+  );
+
+  const handleSkipQuestion = useCallback(
+    async (question: FollowUpQuestion) => {
+      dispatch({
+        type: "SKIP_QUESTION",
+        questionId: question.id,
+        skippedText: t("chat.followUp.skipped"),
+      });
+
+      if (report === null) {
+        if (isAnalysing) return;
+        const photos = latestPreReportPhotoUris(state.messages);
+        if (photos === null) return;
+        const previousQuestions = [
+          ...questionHistory(state.messages),
+          { ...question, answered: false, skipped: true },
+        ];
+        await runAnalyze({
+          photos,
+          userContext: state.pendingContext,
+          previousQuestions,
+        });
+        return;
+      }
+
+      if (isAnalysing) return;
+
+      try {
+        setIsAnalysing(true);
+        const next = await applyQuestionSkip(report, question.id);
+        reportDispatch({ type: "SET_REPORT", report: next });
+        maybeAskPostReportQuestion(next);
+      } catch {
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "chat.error.analysisFailed",
+        });
+      } finally {
+        setIsAnalysing(false);
+      }
+    },
+    [
+      dispatch,
+      isAnalysing,
+      maybeAskPostReportQuestion,
+      report,
+      reportDispatch,
+      runAnalyze,
+      state.messages,
+      state.pendingContext,
+      t,
+    ],
+  );
 
   const handleNewAnalysis = useCallback(() => {
     setConfirmNewAnalysisVisible(true);
@@ -314,17 +552,20 @@ export default function ChatScreen() {
     router.push("/settings");
   }, [router]);
 
+  const handleSetDecision = useCallback(
+    (decision: UserDecision | null) => {
+      reportDispatch({ type: "SET_USER_DECISION", decision });
+    },
+    [reportDispatch],
+  );
+
   const confirmNewAnalysis = useCallback(() => {
     setConfirmNewAnalysisVisible(false);
     dispatch({ type: "RESET_FOR_NEW_ANALYSIS" });
     reportDispatch({ type: "RESET" });
-    dispatch({
-      type: "ADD_ASSISTANT_TEXT",
-      textKey: "chat.start.requirePhotoPrompt",
-    });
   }, [dispatch, reportDispatch]);
 
-  const showPhotoStart = report === null && state.pendingPhotos.length === 0;
+  const hasPreReportPhotos = latestPreReportPhotoUris(state.messages) !== null;
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top", "left", "right"]}>
@@ -338,7 +579,10 @@ export default function ChatScreen() {
             className="h-11 w-11 items-center justify-center rounded-xl active:bg-neutral-100"
             hitSlop={8}
           >
-            <Text className="text-xl leading-none text-neutral-700" accessibilityElementsHidden>
+            <Text
+              className="text-xl leading-none text-neutral-700"
+              accessibilityElementsHidden
+            >
               ☰
             </Text>
           </Pressable>
@@ -348,7 +592,7 @@ export default function ChatScreen() {
             {t("common.appName")}
           </Text>
 
-          {/* Right — new analysis (edit icon) or spacer */}
+          {/* Right — new analysis (plus icon) or spacer */}
           {report !== null ? (
             <Pressable
               onPress={handleNewAnalysis}
@@ -357,14 +601,21 @@ export default function ChatScreen() {
               className="h-11 w-11 items-center justify-center rounded-xl active:bg-neutral-100"
               hitSlop={8}
             >
-              <Text className="text-xl leading-none text-neutral-700" accessibilityElementsHidden>
-                ✎
+              <Text
+                className="text-xl leading-none text-neutral-700"
+                accessibilityElementsHidden
+              >
+                +
               </Text>
             </Pressable>
           ) : (
             <View className="h-11 w-11" />
           )}
         </View>
+
+        {report !== null ? (
+          <ChatReportHeader report={report} onSetDecision={handleSetDecision} />
+        ) : null}
 
         <KeyboardAvoidingView
           className="flex-1"
@@ -373,9 +624,17 @@ export default function ChatScreen() {
         >
           <FlatList
             ref={flatListRef}
+            className="flex-1"
             data={state.messages}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ChatMessageBubble message={item} />}
+            renderItem={({ item }) => (
+              <ChatMessageBubble
+                message={item}
+                onAnswerQuestion={handleAnswerQuestion}
+                onSkipQuestion={handleSkipQuestion}
+                onPickQuestionPhotos={pickPhotos}
+              />
+            )}
             contentContainerStyle={{
               paddingHorizontal: 16,
               paddingTop: 12,
@@ -398,14 +657,17 @@ export default function ChatScreen() {
             </View>
           ) : null}
 
-          {showPhotoStart ? (
-            <RequiredPhotoStart onAddPhoto={handlePickPhotos} />
-          ) : (
-            <PhotoAttachmentPreview
-              uris={state.pendingPhotos}
-              onRemove={handleRemovePhoto}
+          {report === null && !pickerOpen && !hasPreReportPhotos ? (
+            <PhotoTipsStrip />
+          ) : null}
+
+          {pickerOpen ? (
+            <PhotoPickerPanel
+              onTakePhoto={handlePickerTakePhoto}
+              onSelectFromLibrary={handlePickerSelectFromLibrary}
+              onSelectRecent={handlePickerSelectRecent}
             />
-          )}
+          ) : null}
 
           <ChatComposer
             draft={state.draft}
@@ -413,12 +675,14 @@ export default function ChatScreen() {
               dispatch({ type: "SET_DRAFT", draft: text })
             }
             onSend={handleSend}
-            onPickPhotos={handlePickPhotos}
+            onTogglePicker={handleTogglePicker}
+            pickerOpen={pickerOpen}
             canSend={
               !isAnalysing &&
-              (state.pendingPhotos.length > 0 ||
-                (report !== null && state.draft.trim().length > 0))
+              (state.pendingPhotos.length > 0 || state.draft.trim().length > 0)
             }
+            photoUris={state.pendingPhotos}
+            onRemovePhoto={handleRemovePhoto}
           />
         </KeyboardAvoidingView>
       </View>

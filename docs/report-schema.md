@@ -1,50 +1,76 @@
 # Report Schema
 
-The `ObjectReport` is the source of truth for valuation. UI reads from it; chat is a UI for refining it.
+The `ObjectReport` is the source of truth for valuation. UI reads from it; chat and the report-improvement form are UIs for refining it.
 
 ## Type-file layout and dependency direction
 
 - `ChatMessage`, `ChatRole`, `ChatMessageKind`, and the chat reducer types live in `src/features/chat/chat.types.ts`.
 - All other types in this document live in `src/features/report/report.types.ts`.
-- `chat.types.ts` **imports from** `report.types.ts` (because `ChatMessage.question?: FollowUpQuestion`). Never the other way around.
+- `chat.types.ts` **imports from** `report.types.ts` (because chat questions carry a `FollowUpQuestion`, and `ChatState.pendingContext` carries a `Partial<UserContext>`). Never the other way around.
 - Enums are imported, never re-declared.
 
 ## Enums (string literal unions)
 
 - `ChatRole = "user" | "assistant"`
-- `ChatMessageKind = "text" | "photo_upload" | "report_preview" | "question"`
+- `ChatMessageKind = "text" | "photo_upload" | "question"`
 - `ReportStatus = "initial" | "updated"`
 - `ReportMode = "basic" | "seller"`
 - `Confidence = "low" | "medium" | "high"`
 - `Recommendation = "buy" | "negotiate" | "pass" | "research_more"`
 - `Purpose = "keep" | "gift" | "decorate" | "research" | "resell"`
-- `ExpectedAnswerType = "text" | "photo" | "number" | "choice"`
+- `ExpectedAnswerType = "text" | "photo" | "number" | "choice" | "boolean"`
 - `Priority = "low" | "medium" | "high"`
+- `UserDecision = "buy" | "pass"`
+- `ReportImprovementFieldType = "text" | "number" | "choice" | "multi_choice" | "boolean" | "photo"`
 
 There is no `"draft"` status. Before the first successful `report.service.generateInitial` call, no `ObjectReport` exists; staged photos live in `ChatState.pendingPhotos` only.
 
 ## ChatMessage
 
+`ChatMessage` is a discriminated union — different kinds carry different required fields. Assistant text messages store an i18n key, never a resolved string.
+
 ```ts
-type ChatMessage = {
+type ChatMessageShared = {
   id: string;
   role: ChatRole;
-  kind: ChatMessageKind;
-  text?: string;
-  imageUris?: string[];
-  reportId?: string;
-  question?: FollowUpQuestion;
   createdAt: string;
 };
+
+type ChatUserTextMessage = ChatMessageShared & {
+  role: "user";
+  kind: "text";
+  text: string;
+};
+
+type ChatAssistantTextMessage = ChatMessageShared & {
+  role: "assistant";
+  kind: "text";
+  textKey: string;                                  // i18n key, resolved with t() at render
+  textOptions?: Record<string, string | number>;    // i18next interpolation values
+};
+
+type ChatPhotoUploadMessage = ChatMessageShared & {
+  kind: "photo_upload";
+  imageUris: string[];                              // non-empty
+};
+
+type ChatQuestionMessage = ChatMessageShared & {
+  kind: "question";
+  question: FollowUpQuestion;
+};
+
+type ChatMessage =
+  | ChatUserTextMessage
+  | ChatAssistantTextMessage
+  | ChatPhotoUploadMessage
+  | ChatQuestionMessage;
 ```
 
 Notes:
 
-- `text` required when `kind === "text"`.
-- `imageUris` required and non-empty when `kind === "photo_upload"`.
-- `reportId` required when `kind === "report_preview"`. UI must look up the report by id; do not embed report data in the message.
-- `question` required when `kind === "question"`.
 - `createdAt` is ISO-8601 (`new Date().toISOString()`).
+- Assistant copy is **never** rendered as a literal string. The chat bubble resolves `textKey` with `t()` and applies `textOptions` for interpolation.
+- The chat references the latest report by id only — `ChatState.latestReportId` (see chat.types.ts). There is no `report_preview` message kind; the chat surfaces report data through the `ChatReportHeader` panel above the message list, not through a chat bubble.
 
 ## UserContext
 
@@ -132,11 +158,13 @@ Notes:
 ```ts
 type FollowUpQuestion = {
   id: string;
-  question: string;            // translation key in storage; resolved with t() at render time
-  reason: string;              // translation key; shown as small caption
+  question: string;            // i18n key, resolved with t() at render
+  reason: string;              // i18n key, shown as small caption
   expectedAnswerType: ExpectedAnswerType;
   priority: Priority;
+  options?: ReportImprovementFieldOption[];   // present for choice / multi-choice questions
   answered: boolean;
+  skipped: boolean;
 };
 ```
 
@@ -144,6 +172,75 @@ Notes:
 
 - The mock report service stores translation keys (e.g. `chat.followUp.askSellerPrice`) in `question` / `reason`. The UI resolves them with `t()`.
 - `answered` flips to `true` via `applyAnswer`; once `true`, `report.updateService` does not regenerate that question unless the answer is invalidated.
+- `skipped` flips to `true` via `applyQuestionSkip`. A skipped question is not regenerated either, unless the underlying evidence becomes available again.
+- `options` carries the same `{ value, labelKey }` shape used by improvement-form fields; chip-style answer UIs (`choice`, `boolean`) read from it.
+- Follow-up questions remain part of the report model, but the preferred surface is the structured `ReportImprovementForm`. Bubble-style question messages are used during the pre-flight loop (before any report exists) and as a fallback for residual atomic questions after the report is generated.
+
+## ReportImprovementForm
+
+The improvement form is generated by `buildReportImprovementForm` (in `report.mockData.ts`) and stored on the report itself (`ObjectReport.improvementForm`) so the chat header can render its progress and the `/report/[id]/improve` route can render and submit it.
+
+```ts
+type ReportImprovementFieldOption = {
+  value: string;
+  labelKey: string;            // i18n key
+};
+
+type ReportImprovementFieldValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | null;
+
+type ReportImprovementField = {
+  id: string;
+  key: string;                                 // canonical key; doubles as the submission key
+  labelKey: string;                            // i18n key
+  helpTextKey?: string;                        // i18n key
+  type: ReportImprovementFieldType;
+  required: boolean;                           // usually false; the form is optional
+  priority: Priority;
+  options?: ReportImprovementFieldOption[];    // required for choice / multi_choice
+  value?: ReportImprovementFieldValue;         // pre-filled value when one is known
+};
+
+type ReportImprovementForm = {
+  id: string;
+  reportId: string;
+  titleKey: string;            // i18n key
+  descriptionKey: string;      // i18n key
+  fields: ReportImprovementField[];
+  estimatedSeconds: number;    // target <= 30
+  createdAt: string;
+};
+```
+
+Notes:
+
+- The form is a deterministic projection of the latest `ObjectReport`. It is regenerated on every successful update and stored back on the report.
+- `fields` are generated from high-value missing evidence: missing `userContext` keys (`sellerPrice`, `sellerCurrency`, `buyingCountry`, `purpose`), `analysis.missingPhotoChecklist` gaps (e.g. maker's mark, fewer than four photos), and condition / size / signature questions.
+- The form should usually contain a small number of high-value fields; `buildReportImprovementForm` caps the visible set at `MAX_IMPROVEMENT_FIELDS` and `estimatedSeconds` is computed from the field count (clamped to 15-30).
+- Field `key`s are stable and well-known: `sellerPrice`, `sellerCurrency`, `buyingCountry`, `homeCountry`, `purpose` are recognised by `applyImprovementSubmission` as `UserContext` patches. `makersMarkPhoto`, `additionalPhotos`, `conditionDetails`, `diameterOrSize`, and `visibleSignatureOrMark` are interpreted as evidence and feed back into analysis / decision.
+- `labelKey`, `helpTextKey`, `titleKey`, `descriptionKey`, and option `labelKey`s are i18n keys resolved with `t()` at render.
+- When no useful improvements remain, `applyImprovementSubmission` returns the report **without** an `improvementForm` field. The chat header detects this and switches its CTA to "View report" instead of "Edit form".
+
+## ReportImprovementSubmission
+
+```ts
+type ReportImprovementSubmission = {
+  reportId: string;
+  values: Record<string, ReportImprovementFieldValue>;   // keyed by field.key
+  newPhotoUris?: string[];                               // photos added outside any explicit field
+};
+```
+
+Notes:
+
+- `ReportImprovementSubmission` is the input to `report.updateService.applyImprovementSubmission`.
+- One form submission produces exactly one new `ObjectReport` version, even if multiple fields are answered.
+- Empty optional fields are omitted from `values`; the update service only applies provided evidence.
+- `applyImprovementSubmission` recognises a fixed set of well-known keys for `UserContext` patches (`sellerPrice`, `sellerCurrency`, `buyingCountry`, `homeCountry`, `purpose`) and for evidence (`makersMarkPhoto`, `additionalPhotos`, `conditionDetails`, `diameterOrSize`, `visibleSignatureOrMark`). Photo-typed fields (`makersMarkPhoto`, `additionalPhotos`) and `newPhotoUris` are appended to `report.photos` (de-duplicated).
 
 ## Answer
 
@@ -158,13 +255,18 @@ type Answer = {
 
 Notes:
 
-- An `Answer` is the canonical input to `report.updateService.applyAnswer`. It carries the user's reply to a specific `FollowUpQuestion` and any `UserContext` fields it implies (e.g. answering "Where are you buying this?" yields `contextPatch: { buyingCountry: "DK" }`).
-- All `UserContext` mutations flow through `applyAnswer`. There is no separate `applyContextUpdate`; if context must change without an active question, the screen synthesises an `Answer` against a synthetic question id.
-- The chat action `ANSWER_QUESTION` carries the same shape as `Answer`.
+- An `Answer` is the input to `report.updateService.applyAnswer`. It carries the user's reply to a specific `FollowUpQuestion` and any `UserContext` fields it implies (e.g. answering "Where are you buying this?" yields `contextPatch: { buyingCountry: "DK" }`).
+- `UserContext` mutations after the initial report flow through either `applyImprovementSubmission` (well-known field keys) or `applyAnswer.contextPatch`. Before the initial report, the chat screen merges patches into `ChatState.pendingContext` and re-runs `analyze()`. There is no separate `applyContextUpdate`.
+- The chat action `ANSWER_QUESTION` carries an `Answer` payload.
+- `Answer` remains the canonical input for bubble-style follow-up questions and free-text chat replies. New structured improvement UIs prefer `ReportImprovementSubmission`.
 
 ## Free-text answer disambiguation
 
-When the user sends free text in the composer, the screen attaches it to the **highest-priority unanswered `FollowUpQuestion`** (ties broken by insertion order). When no question is unanswered, free text is stored as a regular user message and ignored by `report.updateService` until a new question is posed. The UI may also render an inline answer affordance (chip / quick-reply) tied to the active question; that path produces the same `Answer` shape.
+When the user sends free text in the composer **and** there is an unanswered, un-skipped question on screen, the chat screen attaches the text to the **highest-priority** active question (ties broken by insertion order). Pre-report, this is a pre-flight question rendered as a chat bubble; post-report, it is a residual atomic question posted by `getPostReportChatQuestions`.
+
+When no question is active, free text becomes a regular user message and the assistant either reminds the user that a photo is required (pre-report) or — if photos are pending and a report exists — falls through into the photo-update flow.
+
+The structured improvement form is preferred after the initial report. The chat header always exposes an "Edit form" affordance when `report.improvementForm` is present, so users can switch from chat to the form at any time.
 
 ## ObjectReport
 
@@ -178,7 +280,9 @@ type ObjectReport = {
   analysis: ObjectAnalysis;
   decision: BuyDecision;
   followUpQuestions: FollowUpQuestion[];
-  version: number;                   // 1, 2, 3...
+  improvementForm?: ReportImprovementForm;   // omitted when no useful improvements remain
+  userDecision?: UserDecision;               // user's "Bought / pass" toggle from the chat header
+  version: number;                           // 1, 2, 3...
   createdAt: string;
   updatedAt: string;
 };
@@ -192,27 +296,55 @@ type ObjectReport = {
 - `version` increments by `1` on every successful update produced by `report.updateService`.
 - `status` transitions: `initial -> updated`. After the first update, the report stays `"updated"` and only `version` changes.
 - `updatedAt` is refreshed on every change. `createdAt` is set once.
+- `userDecision` is set / cleared independently by `report.reducer.SET_USER_DECISION` and does not bump `version` (it is a UI annotation, not a piece of analysis evidence).
 - Previous versions are **not persisted** in MVP. Only the latest `ObjectReport` is kept.
 
 ## Single active object
 
 - MVP supports **one active `ObjectReport` at a time**. There is no list of past reports.
-- Starting a new analysis (via the chat header's "New analysis" affordance) discards the current report and clears the chat history.
-- The route `src/app/report/[id].tsx` resolves only when `[id] === currentReport.id`. Otherwise the screen renders a translated "report not found" empty state with a link back to the chat.
+- Starting a new analysis (via the chat header's "+" button) discards the current report and clears the chat history.
+- The route `src/app/report/[id]/index.tsx` resolves only when `[id] === currentReport.id`. Otherwise the screen renders a translated "report not found" empty state with a link back to the chat.
+- The improvement route `src/app/report/[id]/improve.tsx` follows the same rule and additionally falls back to a translated empty state when `report.improvementForm` is not present.
 
 ## Service signatures
 
 Services are async from day one so the surface does not change when real AI replaces the mocks:
 
 ```ts
+// report.service.ts
 function generateInitial(input: {
   photos: string[];
   userContext: UserContext;
+  previousQuestions?: FollowUpQuestion[];
 }): Promise<ObjectReport>;
+
+type AnalyzeResult =
+  | { kind: "report"; report: ObjectReport }
+  | { kind: "questions"; questions: FollowUpQuestion[]; userContext: UserContext };
+
+function analyze(input: {
+  photos: string[];
+  userContext: UserContext;
+  freeText?: string;
+  previousQuestions?: FollowUpQuestion[];
+}): Promise<AnalyzeResult>;
+
+// report.updateService.ts
+function generateImprovementForm(report: ObjectReport): ReportImprovementForm;
+
+function applyImprovementSubmission(
+  report: ObjectReport,
+  submission: ReportImprovementSubmission,
+): Promise<ObjectReport>;
 
 function applyAnswer(
   report: ObjectReport,
   answer: Answer,
+): Promise<ObjectReport>;
+
+function applyQuestionSkip(
+  report: ObjectReport,
+  questionId: string,
 ): Promise<ObjectReport>;
 
 function applyPhotos(
@@ -221,13 +353,26 @@ function applyPhotos(
 ): Promise<ObjectReport>;
 ```
 
-- All three return a **new** `ObjectReport`. They never mutate the input.
-- `generateInitial` rejects (throws) when `photos.length === 0`.
+- `generateInitial`, `applyImprovementSubmission`, `applyAnswer`, `applyQuestionSkip`, and `applyPhotos` return a **new** `ObjectReport`. They never mutate the input.
+- `analyze` is the orchestrator the chat screen calls when the user sends photos + optional free text. It infers `UserContext` patches from the free text, runs the pre-flight question loop, and either returns the next pre-flight question batch or the freshly generated initial report.
+- `generateInitial` rejects (throws) when `photos.length === 0`. `analyze` propagates that rejection.
+- `generateImprovementForm` is a deterministic projection used internally by both services to (re)build `ObjectReport.improvementForm`. It always returns a form object; the report-level signal that "no improvements remain" is the absence of `improvementForm` after `applyImprovementSubmission`.
+- `applyQuestionSkip` flips a `FollowUpQuestion`'s `skipped` flag and triggers a report rebuild so the analysis layer can react if needed.
 - Mock implementations resolve synchronously-equivalently (no real I/O) but must still return a `Promise`.
+
+## Improvement update rules
+
+- `applyImprovementSubmission` applies all submitted field values in one pass and increments `version` once.
+- Any submitted field whose `key` matches a `UserContext` slot is merged into `userContext` (well-known keys above).
+- Any submitted field whose `key` matches a known follow-up question id (e.g. `sellerPrice` ↔ `seller-price`, `conditionDetails` ↔ `condition-details`) marks that `FollowUpQuestion.answered = true` so it is not regenerated.
+- Submitted photo fields and `newPhotoUris` are appended to `photos`; duplicate URIs are de-duplicated.
+- The update service revises `analysis.conditionObservations`, `analysis.missingPhotoChecklist`, `analysis.qualityChecklist`, `analysis.sellerQuestions`, `analysis.confidence`, and `decision` fields (with `recommendation` re-derived from the new score) when the new evidence justifies it.
+- A fresh `improvementForm` is rebuilt and re-attached after every update; if the rebuilt form has no remaining fields, the report is returned without `improvementForm`.
+- After the update, the chat posts an assistant text summary (`report.improvement.summary.updated`). The summary text is generated at the screen layer from the returned report and the submitted fields.
 
 ## Score and recommendation (mock rule)
 
-The mock service derives `decision.recommendation` from `decision.worthBringingHomeScore` using fixed thresholds. Real AI may compute them independently; the schema only requires both fields to be present and consistent.
+The mock service derives `decision.recommendation` from `decision.worthBringingHomeScore` using fixed thresholds (see `src/lib/recommendation.ts`). Real AI may compute them independently; the schema only requires both fields to be present and consistent.
 
 | score range  | recommendation   |
 | ------------ | ---------------- |
@@ -247,17 +392,17 @@ There is **no FX conversion in MVP**. The "Converted price placeholder" UI eleme
 
 ## Basic Mode vs Seller Mode visibility
 
-### Basic Mode detail screen sectioning (canonical)
+### Basic Mode detail screen sectioning (current)
 
-The report detail screen is grouped into the following sections, in this order. Both `ReportDetail.tsx` and the chat preview card use this grouping so Phase 4 has one source of truth.
+`src/components/report/ReportDetail.tsx` currently renders the following sections, in order:
 
-1. **Identity** — `analysis.objectName`, `analysis.shortDescription`, `analysis.likelyCategory`, `analysis.likelyOrigin`, `analysis.likelyStyle`, `analysis.likelyMaterial`.
-2. **Period** — `analysis.estimatedCreationPeriod` (label, year range, confidence, reasoning).
-3. **Condition and checklists** — `analysis.conditionObservations`, `analysis.qualityChecklist`, `analysis.missingPhotoChecklist`.
-4. **Decision** — `decision.worthBringingHomeScore`, `decision.recommendation`, seller price (from `userContext`), converted-price placeholder, `decision.suggestedMaxPrice` + `suggestedMaxPriceCurrency`, `decision.reasons`, `decision.risks`, `analysis.confidence`.
-5. **Travel cautions** — `analysis.travelCautions`.
-6. **Seller questions** — `analysis.sellerQuestions`.
-7. **Seller Mode upsell** — locked `SellerModeUpsellCard` (UI-only, not a report field).
+1. **Decision summary hero** (`ReportSummaryHero`) — `decision.worthBringingHomeScore`, `decision.recommendation`, `analysis.objectName`, `analysis.shortDescription`, `analysis.estimatedCreationPeriod` (label + year range + confidence), seller price (from `userContext`), `decision.suggestedMaxPrice` + `suggestedMaxPriceCurrency`.
+2. **Reasons and risks** — `decision.reasons` and `decision.risks`.
+3. **Identity and condition** — `analysis.conditionObservations`, then a card with `analysis.likelyCategory`, `likelyOrigin`, `likelyStyle`, `likelyMaterial`, `estimatedCreationPeriod.reasoning`, and `analysis.confidence`.
+4. **Travel and handling** — `analysis.travelCautions` (only when non-empty).
+5. **Seller Mode upsell** — locked `SellerModeUpsellCard` (UI-only, not a report field).
+
+> **Known divergence from the original spec.** The mock engine still computes `analysis.qualityChecklist`, `analysis.missingPhotoChecklist`, and `analysis.sellerQuestions`, plus the converted-price placeholder caption, but the current `ReportDetail` does not render them. This is tracked as a follow-up: either the screen should render those sections, or the mock data should stop computing them. Both options are acceptable; pick one when revisiting the detail-screen layout. Until then, the canonical layout is the one above.
 
 ### Basic Mode never renders
 
@@ -276,5 +421,5 @@ Adds the items above (and a future `compsKeywords: string[]` field) on top of ev
 - `decision.recommendation` is consistent with `decision.worthBringingHomeScore` according to the mock rule above.
 - `report.mode === "basic"` in MVP.
 - Comps keywords never appear in any Basic Mode render path and the type does not include them.
-- The chat may reference reports by `reportId` only; it never duplicates report fields in the message.
-- `report.id` is stable across `version` bumps.
+- The chat references the latest report by id only (`ChatState.latestReportId`); it never duplicates report fields in messages.
+- `report.id` is stable across `version` bumps. `userDecision` does not bump `version`.

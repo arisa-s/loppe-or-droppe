@@ -9,6 +9,14 @@ const MOCK_URIS = [
 
 let mockCursor = 0;
 
+function nextMockUri(): string {
+  const uri =
+    MOCK_URIS[mockCursor % MOCK_URIS.length] ??
+    "https://placehold.co/400x300";
+  mockCursor += 1;
+  return uri;
+}
+
 /**
  * Opens the system image library. Falls back to a deterministic mock URI when
  * the picker call rejects (web blob failure, denied permission, unsupported env),
@@ -26,10 +34,24 @@ export async function pickPhotos(): Promise<string[]> {
     }
     return result.assets.map((a) => a.uri);
   } catch {
-    const uri =
-      MOCK_URIS[mockCursor % MOCK_URIS.length] ??
-      "https://placehold.co/400x300";
-    mockCursor += 1;
-    return [uri];
+    return [nextMockUri()];
+  }
+}
+
+/**
+ * Opens the camera to take a new photo.
+ */
+export async function takePhoto(): Promise<string[]> {
+  try {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (result.canceled) {
+      return [];
+    }
+    return result.assets.map((a) => a.uri);
+  } catch {
+    return [nextMockUri()];
   }
 }

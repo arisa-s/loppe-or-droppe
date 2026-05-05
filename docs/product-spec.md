@@ -18,31 +18,41 @@ Codename / repo: **loppe-or-droppe**. Product-facing name: **Loppe or Droppe**.
 
 1. User opens the app and lands on the chat screen.
 2. The assistant requires at least one photo before any analysis can start.
-3. User uploads one or more photos of the object.
-4. App requests minimal context if missing: buying country, home / selling country, seller price + currency, purpose (`keep | gift | decorate | research | resell`).
-5. App generates an **initial Object Valuation Report** using mock AI.
-6. The report appears as a preview card inside the chat.
-7. Assistant asks 1–3 focused follow-up questions based on missing evidence.
-8. User answers in chat and/or uploads more photos.
-9. App updates the report, increments its `version`, and posts an assistant summary message describing what changed.
-10. User can open the latest report in a detail screen / bottom sheet at any time.
+3. User uploads one or more photos of the object via the picker, the camera, or the `RequiredPhotoStart` slots.
+4. App runs a short **pre-flight question loop** to collect the minimum context it needs (seller price + currency, buying country, and optionally purpose). Free text the user types is also parsed for these fields when possible.
+5. App generates an **initial Object Valuation Report** using the mock AI.
+6. The chat screen renders a persistent `ChatReportHeader` panel above the message list with the score, recommendation, object name, prices, a primary action button, and a "Bought" toggle.
+7. If the report has missing evidence, the panel's primary action is **Edit form** (with a small donut showing how many improvement-form fields are answered). Otherwise it falls back to **View report**.
+8. Tapping **Edit form** navigates to a dedicated improvement screen that renders a short object-specific form generated from the report's missing evidence (text / number / choice / multi-choice / boolean / photo fields).
+9. User submits structured details and/or additional photos in the form.
+10. App updates the `ObjectReport` once, increments its `version`, posts an assistant summary message in chat describing what changed, and returns to the chat screen.
+11. Residual atomic follow-up questions can still appear as chat bubbles when they fit better there than in the form.
+12. User can open the latest report in a detail screen at any time from the panel.
 
 ## UX rules
 
 - The main screen is a chat interface, but the app is **not** a generic chatbot. It exists to produce and refine an `ObjectReport`.
-- **Photo upload is required** before any analysis. The initial empty state explicitly prompts for a photo.
-- Chat is used to gather missing information and explain the report. Components must read valuation data from the `ObjectReport`, never from chat history.
-- The latest report is always shown as a preview card inside the chat after the first analysis.
-- Tapping the report card opens a full report detail screen / bottom sheet.
-- A mode indicator is visible: **Basic Mode** (active) and **Seller Mode** (locked / upgrade placeholder).
+- **Photo upload is required** before any analysis. The initial empty state explicitly prompts for a photo and offers object-type guidance tiles. Free text without photos posts a translated reminder.
+- Chat is used to gather missing information (pre-flight loop and residual atomic follow-ups) and to surface assistant summaries. The preferred report-improvement path is the structured `ReportImprovementForm` opened from the chat report panel. UI components must read valuation data from the `ObjectReport`, never from chat history.
+- Whenever a report exists, a `ChatReportHeader` panel is pinned above the chat message list and shows the latest report at a glance.
+- When useful missing evidence exists, the panel's primary action surfaces the optional **Edit form** affordance with a donut-progress badge. It is not required to continue using the app.
+- The improvement form must be short, object-specific, and usually fillable in about 30 seconds. It should focus on the highest-value missing evidence for the current object, not ask every possible question.
+- Follow-up questions are not removed. They remain supported as chat interactions during the pre-flight loop and as residual atomic questions after the report is generated, but most prompts should be represented as form fields.
+- Submitting the improvement form updates the current `ObjectReport` once and posts a concise assistant summary message in chat.
+- Tapping the report panel's "View report" / report area opens a full report detail screen.
+- The mode indicator (**Basic Mode** active, **Seller Mode** locked) lives in **Settings**. There is no in-chat mode badge in MVP.
 - A language switcher lives in **Settings only**. No header language switcher in MVP.
-- The chat header exposes a **"New analysis"** button whenever a report exists. Tapping it (after a translated confirm dialog) discards the current report and clears the chat to start a fresh object.
+- The chat header exposes a **"+" New analysis** button whenever a report exists. Tapping it (after a translated confirm dialog) discards the current report and clears the chat to start a fresh object.
+- The chat header also exposes a **"☰" hamburger** that opens Settings as a modal.
+- The `ChatReportHeader` exposes a **shopping-bag toggle** that flips a `userDecision` flag on the report between "bought" and unset, so users can mark the result of their decision without leaving the chat.
 - Visual style: minimal, ChatGPT-like. No dashboards.
 
 ## Core screens
 
-- **Chat screen** — main entry. Required-photo start state, message list (user + assistant bubbles, photo previews, report preview card, follow-up questions), composer with photo attachment + send.
-- **Report Detail screen** — full structured report rendered from the latest `ObjectReport`.
+- **Chat screen** — main entry. Required-photo start state, pinned `ChatReportHeader` panel once a report exists, message list (user + assistant bubbles, photo previews, follow-up question bubbles), composer with photo attachment + send.
+- **Report Improvement screen** (`/report/[id]/improve`) — short object-specific form opened from the chat panel's "Edit form" button. Renders the latest report's `improvementForm`, submits once, and returns the user to chat after the report update summary is posted.
+- **Report Detail screen** (`/report/[id]`) — full structured report rendered from the latest `ObjectReport`.
+- **Photo Guide** (`/photo-guide`) — general photo tips and per-object-type 3-step guidance.
 - **Saved Reports** — placeholder screen for now.
 - **Settings** — language switcher, mode indicator, future account / billing.
 
@@ -59,6 +69,7 @@ MVP supports one active object at a time. There is no list of past reports.
 
 - Starting a "New analysis" discards the current report and clears the chat history. The `Saved Reports` screen is an empty placeholder until persistence lands.
 - Opening the report detail route (`/report/[id]`) for an `[id]` that does not match the current report renders a translated "report not found" empty state with a link back to the chat.
+- The improvement route (`/report/[id]/improve`) follows the same rule and additionally falls back to a translated "all set" empty state when the current report has no `improvementForm`.
 
 ## Out of scope for MVP
 
@@ -73,10 +84,14 @@ MVP supports one active object at a time. There is no list of past reports.
 All visible strings are loaded via i18next keys. Examples (English values shown for reference only — both `en.json` and `ja.json` must define them before the string is used):
 
 - `chat.start.requirePhotoPrompt` — "Upload a photo of the object to begin. For the best report, include the front, back/base, maker's mark, rim/edge, and any damaged areas."
-- `report.preview.title.initial` — "Initial valuation report"
-- `report.preview.title.updated` — "Updated valuation report"
+- `chat.followUp.preflightIntro` — "A few quick questions before I run the analysis."
+- `chat.reportHeader.form.editForm` / `chat.reportHeader.form.viewReport` — Primary CTA copy in `ChatReportHeader`.
+- `report.improvement.form.title` — "Improve this report"
+- `report.improvement.form.submit` — "Update report"
+- `report.improvement.summary.updated` — "I updated the report with your added details."
+- `report.preview.summary.answerUpdated` / `report.preview.summary.photosUpdated` — Assistant summaries posted after `applyAnswer` / `applyPhotos`.
 - `chat.followUp.askSellerPrice` — "What is the seller asking price?"
 - `chat.followUp.askBuyingCountry` — "Where are you buying this item?"
-- `chat.followUp.askHomeCountry` — "Where would you bring or sell it?"
+- `chat.followUp.askPurpose` — "What do you want to do with this object?"
 - `chat.followUp.askMakersMarkPhoto` — "Can you upload a close-up of the maker's mark?"
 - `chat.followUp.askConditionDetails` — "Do you see any chips, cracks, crazing, repairs, or stains?"

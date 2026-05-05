@@ -7,6 +7,8 @@
     "cancel": "キャンセル",
     "send": "送信",
     "ok": "OK",
+    "yes": "はい",
+    "no": "いいえ",
     "listBullet": "–",
     "removeSymbol": "×"
   },
@@ -41,12 +43,17 @@
       "condition": {
         "obsMulti1": "全体的な表面の擦れは経年と整合しています。",
         "obsMulti2": "提出された写真の範囲では大きな構造的損傷は確認できません。",
-        "obsSingle": "より多くの角度の写真がないと状態判断の信頼度は限定的です。"
+        "obsSingle": "より多くの角度の写真がないと状態判断の信頼度は限定的です。",
+        "obsSubmittedDetails": "状態に関する追加情報が入力されました。",
+        "obsDamageReported": "価値に影響しうる状態の問題が報告されました。",
+        "obsNoVisibleDamage": "目立つ傷みはないと報告されました。",
+        "obsMakerMarkAdded": "製作者マークまたは署名の写真が追加されました。"
       },
       "quality": {
         "item1": "縁・角・取手・足部などの欠けを確認してください。",
         "item2": "底部の製作者マーク、刻印、ラベル、署名の有無を確認してください。",
-        "item3": "ひび、修理、再塗装の有無を確認してください。"
+        "item3": "ひび、修理、再塗装の有無を確認してください。",
+        "sizeProvided": "サイズ情報が入力済みです。購入前に類似品と比べてください。"
       },
       "missingPhoto": {
         "mark": "製作者マーク・刻印・署名または底部のアップ写真",
@@ -60,14 +67,20 @@
       "sellerQuestion": {
         "item1": "製作者、工房、または前所有者について分かりますか？",
         "item2": "修復や修繕の経歴はありますか？",
-        "item3": "価格交渉の余地はありますか？"
+        "item3": "価格交渉の余地はありますか？",
+        "verifySignature": "署名、刻印、製作者マークについて販売者に確認できますか？"
       },
       "decision": {
         "reasonPortable": "携行性があり装飾的な魅力もあるため、より詳しく調べる価値があります。",
         "reasonDkkAssumption": "販売通貨が未入力のため、提案上限価格は当面DKKを前提としています。",
         "reasonWithSellerCurrency": "提案上限価格は入力された販売通貨を使用しています。",
+        "reasonNoVisibleDamage": "目立つ傷みがないとの情報により、信頼度が少し上がりました。",
+        "reasonPriceWithinMax": "希望価格は提案上限以下です。",
+        "reasonMakerMarkAdded": "製作者マークの写真により、帰属判断の信頼度が上がります。",
         "riskAttribution": "明確な製作者マークがないため帰属は暫定的です。",
-        "riskCondition": "状態の問題は評価額に大きく影響する可能性があります。"
+        "riskCondition": "状態の問題は評価額に大きく影響する可能性があります。",
+        "riskReportedDamage": "報告された欠け、ひび、修理跡は評価額を下げます。",
+        "riskPriceAboveMax": "希望価格が提案上限を上回っています。"
       }
     },
     "recommendation": {
@@ -88,11 +101,115 @@
       },
       "summary": {
         "initial": "はじめての査定結果をご確認ください。",
-        "answerUpdated": "ご回答をもとにレポートを更新しました。",
-        "photosUpdated": "追加の写真をもとにレポートを更新しました。"
+        "answerUpdated": "レポートを更新しました。信頼度は「{{confidence}}」です。",
+        "photosUpdated": "追加の写真をもとにレポートを更新しました。信頼度は「{{confidence}}」です。"
       },
       "sellerPrice": "販売価格: {{price}} {{currency}}",
-      "maxPrice": "上限: {{price}} {{currency}}"
+      "maxPrice": "上限: {{price}} {{currency}}",
+      "period": "時代: {{period}}",
+      "keyRisk": "リスク",
+      "keyMissingCheck": "不足",
+      "viewFullReport": "詳細レポートを見る"
+    },
+    "questionnaire": {
+      "summary": {
+        "preflightContext": "回答から拾えた内容です:\n\n{{detail}}",
+        "chatAnswerUpdated": "{{detail}}\n\nこの内容でレポートを更新しました。",
+        "formUpdated": "{{detail}}\n\n回答をもとにレポートを更新しました。査定の信頼度が上がり、確認リストも調整されています。",
+        "line": "{{fieldLabel}}: {{valueText}}",
+        "photoCount_one": "写真{{count}}枚",
+        "photoCount_other": "写真{{count}}枚",
+        "extraPhotosLabel": "追加の写真",
+        "fallbackField": "ご回答"
+      }
+    },
+    "improvement": {
+      "card": {
+        "title": "もう少し正確にできます。",
+        "description": "分かる範囲で情報を追加してください。",
+        "cta": "情報を追加",
+        "estimatedTime": "約{{seconds}}秒"
+      },
+      "form": {
+        "title": "レポートを改善",
+        "description": "分かる範囲だけで大丈夫です。入力内容で信頼度が上がります。",
+        "submit": "レポートを更新",
+        "skip": "スキップ",
+        "addPhoto": "写真を追加",
+        "photoCount_one": "写真{{count}}枚を選択済み",
+        "photoCount_other": "写真{{count}}枚を選択済み",
+        "error": "レポートを更新できませんでした。もう一度お試しください。"
+      },
+      "summary": {
+        "available": "いただいた情報をもとにレポートを作成しました。信頼度は「{{confidence}}」です。\n\n信頼度を上げるには、上のカードから詳細を追加するか、このチャットで分かることを教えてください。",
+        "updated": "レポートを更新しました。信頼度は「{{confidence}}」です。"
+      },
+      "empty": {
+        "title": "今は追加質問がありません",
+        "body": "このレポートには短い改善フォームがありません。",
+        "cta": "レポートに戻る",
+        "backToReport": "レポートに戻る"
+      },
+      "field": {
+        "sellerPrice": {
+          "label": "販売者の希望価格",
+          "help": "交渉前に表示されている価格を入力してください。"
+        },
+        "sellerCurrency": {
+          "label": "販売通貨",
+          "help": "希望価格に使われている通貨を選んでください。"
+        },
+        "buyingCountry": {
+          "label": "購入する国",
+          "help": "この品を購入または見ている国を入力してください。"
+        },
+        "homeCountry": {
+          "label": "持ち帰り先の国",
+          "help": "どこへ持ち帰る予定かを入力してください。"
+        },
+        "purpose": {
+          "label": "主な目的",
+          "help": "主にどう使う予定かを選んでください。"
+        },
+        "makersMarkPhoto": {
+          "label": "製作者マークの写真",
+          "help": "刻印、ラベル、署名、底部マークなどのアップ写真を追加してください。"
+        },
+        "additionalPhotos": {
+          "label": "追加で役立つ写真",
+          "help": "裏面／底面、縁、損傷箇所のアップ写真があれば追加してください。"
+        },
+        "conditionDetails": {
+          "label": "見える状態の問題",
+          "help": "実物で見える問題を選んでください。"
+        },
+        "diameterOrSize": {
+          "label": "直径またはサイズ",
+          "help": "おおよその寸法は価値や持ち帰りリスクの判断に役立ちます。"
+        },
+        "visibleSignatureOrMark": {
+          "label": "見える署名またはマーク",
+          "help": "署名、刻印、ラベル、製作者マークが見えるか教えてください。"
+        }
+      },
+      "option": {
+        "DKK": "DKK",
+        "JPY": "JPY",
+        "USD": "USD",
+        "EUR": "EUR",
+        "GBP": "GBP",
+        "keep": "自分用に保管",
+        "gift": "贈り物",
+        "decorate": "装飾用",
+        "research": "調査用",
+        "resell": "転売",
+        "chips": "欠け",
+        "cracks": "ひび割れ",
+        "crazing": "貫入",
+        "repairs": "修理跡",
+        "stains": "染み",
+        "none": "目立つ傷みなし"
+      }
     },
     "detail": {
       "notFound": {
@@ -106,10 +223,25 @@
       "section": {
         "identity": "識別情報",
         "period": "製作時期",
-        "condition": "状態と確認事項",
+        "condition": "状態",
         "decision": "購入判断",
         "travelCautions": "持ち帰りの注意点",
-        "sellerQuestions": "販売者への質問"
+        "reasonsRisks": "主な理由とリスク",
+        "beforeYouBuy": "購入前の確認",
+        "identityCondition": "識別 / 状態",
+        "travelHandling": "持ち帰りの注意"
+      },
+      "hero": {
+        "scoreLabel": "持ち帰り価値",
+        "periodLabel": "推定年代",
+        "sellerPrice": "希望価格",
+        "maxPrice": "推奨上限"
+      },
+      "empty": {
+        "noReasons": "理由なし",
+        "noRisks": "リスクなし",
+        "noChecklist": "確認事項なし",
+        "noTravelCautions": "注意事項なし"
       },
       "field": {
         "objectName": "名称",
@@ -146,6 +278,71 @@
       }
     }
   },
+  "photoGuide": {
+    "title": "撮影ガイド",
+    "intro": "写真がよいほど、査定は速く正確になります。まず全体が分かる写真を撮り、次に年代・製作者・素材・状態を判断できる細部を追加しましょう。",
+    "openA11y": "詳しい撮影ガイドを開く",
+    "selectA11y": "品物の種類を選択",
+    "objectPrompt": "どの品物を見ていますか？",
+    "objectsInstructionTitle": "{{object}}で撮るべき写真",
+    "general": {
+      "title": "まず共通のコツ",
+      "tip1": "明るく均一な光で撮影しましょう。強い影、フラッシュの反射、暖色すぎる室内灯はできるだけ避けてください。",
+      "tip2": "無地の背景で品物全体を撮ると、輪郭、比率、大きさが分かりやすくなります。",
+      "tip3": "裏面、底部、ラベル、署名、刻印、構造が分かる部分を追加してください。正面より重要なことも多いです。",
+      "tip4": "状態は正直に写しましょう。欠け、ひび、染み、修理跡、ゆるみ、色あせ、強い摩耗はアップで撮ってください。"
+    },
+    "objects": {
+      "ceramics": {
+        "label": "陶磁器・磁器",
+        "step1": "正面、側面、形や縁が重要な場合は上からの写真も撮ってください。",
+        "step2": "底部を鮮明に撮影し、刻印、型押し、署名、古いラベルが見えるようにしてください。",
+        "step3": "縁、取手、足部、ひび、欠け、貫入、修理跡、釉薬の摩耗をアップで撮ってください。"
+      },
+      "glassware": {
+        "label": "ガラス製品",
+        "step1": "色、厚み、透明感が分かるよう、明るいまたは暗い無地背景で撮影してください。",
+        "step2": "底部、ポンテ跡、縁、型の継ぎ目、気泡、署名、エッチングを撮ってください。",
+        "step3": "欠け、傷、白濁、ひび、足部や縁の摩耗をアップで写してください。"
+      },
+      "jewelry": {
+        "label": "ジュエリー・時計",
+        "step1": "正面と裏面の全体写真に加え、硬貨や手と一緒に撮って大きさが分かるようにしてください。",
+        "step2": "ホールマーク、製作者マーク、留め具、文字盤、裏蓋、見える場合はムーブメントの印も撮ってください。",
+        "step3": "石の欠損、メッキの摩耗、曲がった爪、傷、ゆるい留め具、修理跡を写してください。"
+      },
+      "prints": {
+        "label": "版画・絵画・ポスター",
+        "step1": "余白、額、見える端を含め、作品全体をまっすぐ撮ってください。",
+        "step2": "署名、エディション番号、スタンプ、ラベル、紙の質感、裏面をアップで撮ってください。",
+        "step3": "破れ、シミ、色あせ、水跡、額の傷み、テープ、修復跡を写してください。"
+      },
+      "furniture": {
+        "label": "小型家具",
+        "step1": "正面、側面、背面、天板、底面を撮り、構造と比率が分かるようにしてください。",
+        "step2": "接合部、金具、メーカーラベル、ネジ、引き出し内部、脚、張地の細部を撮ってください。",
+        "step3": "突板の剥がれ、染み、ぐらつく箇所、修理跡、割れ、ゆるい接合、布の摩耗を写してください。"
+      },
+      "textiles": {
+        "label": "布製品・ラグ",
+        "step1": "全体を平らに撮り、角や縁も追加して柄、織り、大きさが分かるようにしてください。",
+        "step2": "ラベル、縫い目、裏面、フリンジ、刺繍、織りの構造、メーカータグを撮ってください。",
+        "step3": "穴、染み、色あせ、虫食い、修理跡、薄くなった箇所、においが分かる場合、摩耗した縁を写してください。"
+      },
+      "lamps": {
+        "label": "ランプ・照明",
+        "step1": "ランプ全体または器具全体、シェード、土台、スイッチ、コード、プラグ、取付金具を撮ってください。",
+        "step2": "ラベル、製作者マーク、ソケット、素材の接合部、土台の裏側を撮ってください。",
+        "step3": "へこみ、ひび、配線交換、欠品、シェードの染み、腐食、点灯するかどうかを写してください。"
+      },
+      "silver": {
+        "label": "銀製品・金属製品",
+        "step1": "全体、側面、内側、取手、足部、取り外せる部品を撮ってください。",
+        "step2": "ホールマーク、製作者マーク、検定印、刻印番号、イニシャル彫刻をアップで撮ってください。",
+        "step3": "へこみ、割れ、メッキの摩耗、ろう付け修理、傷、変色、曲がりやゆるい部品を写してください。"
+      }
+    }
+  },
   "chat": {
     "header": {
       "newAnalysis": "新しい査定",
@@ -159,9 +356,36 @@
       }
     },
     "start": {
-      "requirePhotoPrompt": "品物の写真を追加してはじめましょう。精度の高いレポートには、正面・裏面／底部・製作者のマーク・縁端部・損傷箇所の写真が有効です。",
+      "requirePhotoPrompt": "蚤の市やヴィンテージショップで気になるものを見つけましたか？写真をアップロードすると、購入すべきか判断をお手伝いします。",
       "photoRequiredReminder": "レポートを作成するには、先に写真を1枚以上添付してください。",
-      "addPhotoButton": "写真を追加"
+      "photoRequiredFollowUp": "了解です。続けて品物の写真を追加してください。分析を開始します。",
+      "addPhotoButton": "写真を追加",
+      "tipsHeading": "撮影のヒント",
+      "tipsLearnMore": "詳しく見る ›",
+      "tipCards": {
+        "card1": {
+          "title": "全体",
+          "body": "背景はシンプルでコントラストのある色にし、形や大きさがはっきり分かるように全体を撮りましょう。"
+        },
+        "card2": {
+          "title": "裏面・底部",
+          "body": "底面や裏側も撮影してください。刻印、摩耗、作りの様子がよく出ます。"
+        },
+        "card3": {
+          "title": "製作者マーク",
+          "body": "署名、刻印、ラベル、型押しなどがある場合はピントの合ったアップで。"
+        },
+        "card4": {
+          "title": "損傷",
+          "body": "欠け、ひび、貫入、修理跡などがあれば、アップで写すと状態判断に役立ちます。"
+        }
+      },
+      "photoGuidance": {
+        "front": "正面",
+        "backBase": "裏面・底部",
+        "makersMark": "製作者マーク",
+        "damage": "損傷箇所"
+      }
     },
     "status": {
       "analysing": "オブジェクトを分析しています…"
@@ -170,10 +394,34 @@
       "analysisFailed": "レポートを更新できませんでした。もう一度お試しください。"
     },
     "composer": {
-      "inputPlaceholder": "メッセージ\u2026",
+      "inputPlaceholder": "品物の説明、希望価格、発見場所などを入力…",
       "attachA11y": "写真を添付",
       "sendA11y": "メッセージを送信",
       "removePhotoA11y": "写真を削除"
+    },
+    "picker": {
+      "photosLabel": "写真",
+      "allPhotos": "すべての写真",
+      "cameraA11y": "写真を撮る",
+      "recentPhotoA11y": "この写真を選択"
+    },
+    "reportHeader": {
+      "photoAlt": "アップロードした写真",
+      "form": {
+        "editForm": "詳細を追加",
+        "progress": "{{answered}}/{{total}} 完了",
+        "viewReport": "レポートを見る"
+      },
+      "decision": {
+        "decide": "最終判断",
+        "bought": "✓ 購入した",
+        "passed": "✗ 見送った",
+        "buy": "購入した",
+        "pass": "見送った",
+        "clear": "判断をクリア",
+        "modalTitle": "最終判断は？",
+        "modalSubtitle": "このアイテムの最終的な判断を記録しましょう。"
+      }
     },
     "bubble": {
       "photoCount_one": "写真1枚",
@@ -181,12 +429,21 @@
       "photoAlt": "添付された写真"
     },
     "followUp": {
+      "preflightIntro": "レポートを作る前に、短い質問に答えると結果がより役立ちます。分からないものはスキップできます。",
+      "skip": "スキップ",
+      "skipped": "スキップしました",
+      "answer": "回答",
+      "numberPlaceholder": "数字を入力",
       "askSellerPrice": "販売者の希望価格はいくらですか？",
       "askSellerPriceReason": "価格の妥当性を評価するために必要です。",
+      "askSellerCurrency": "価格の通貨は何ですか？",
+      "askSellerCurrencyReason": "提案上限価格を正しい通貨で扱うために使います。",
       "askBuyingCountry": "どこでこの品を購入しようとしていますか？",
       "askBuyingCountryReason": "輸入規則や真贋の文脈に影響します。",
-      "askHomeCountry": "この品をどこへ持ち帰る、または売る予定ですか？",
-      "askHomeCountryReason": "持ち帰りコストと転売可能性の評価に必要です。",
+      "askHomeCountry": "この品をどこへ持ち帰る予定ですか？",
+      "askHomeCountryReason": "持ち帰りコストや旅行時の前提を判断するために役立ちます。",
+      "askPurpose": "主に何に使う予定ですか？",
+      "askPurposeReason": "目的によって、購入判断の厳しさが変わります。",
       "askMakersMarkPhoto": "製作者のマークのアップ写真を追加できますか？",
       "askMakersMarkPhotoReason": "鮮明なマーク写真は識別精度を大幅に向上させます。",
       "askConditionDetails": "欠け、ひび割れ、貫入、修理跡、染みなどは見えますか？",

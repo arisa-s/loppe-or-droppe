@@ -6,16 +6,16 @@ import type {
   ChatState,
   ChatRole,
   ChatPhotoUploadMessage,
-  ChatReportPreviewMessage,
   ChatAssistantTextMessage,
   ChatUserTextMessage,
 } from "./chat.types";
-import type { Answer, FollowUpQuestion } from "../report/report.types";
+import type { Answer, FollowUpQuestion, UserContext } from "../report/report.types";
 
 const initialChatState: ChatState = {
   messages: [],
   draft: "",
   pendingPhotos: [],
+  pendingContext: {},
   latestReportId: null,
 };
 
@@ -33,6 +33,14 @@ export type ChatAction =
   | { type: "ADD_REPORT_PREVIEW"; reportId: string }
   | { type: "ADD_QUESTION"; question: FollowUpQuestion }
   | { type: "ANSWER_QUESTION"; answer: Answer }
+  | { type: "MARK_QUESTION_ANSWERED"; questionId: string }
+  | {
+      type: "SKIP_QUESTION";
+      questionId: string;
+      skippedText: string;
+    }
+  | { type: "MERGE_PENDING_CONTEXT"; contextPatch: Partial<UserContext> }
+  | { type: "CLEAR_PENDING_CONTEXT" }
   | { type: "REMOVE_STAGED_PHOTO"; uri: string }
   | { type: "RESET_FOR_NEW_ANALYSIS" };
 
@@ -48,7 +56,29 @@ function mapMarkQuestionAnswered(
     if (m.kind !== "question" || m.question.id !== questionId) {
       return m;
     }
-    const marked: FollowUpQuestion = { ...m.question, answered: true };
+    const marked: FollowUpQuestion = {
+      ...m.question,
+      answered: true,
+      skipped: false,
+    };
+    const next: ChatQuestionMessage = { ...m, question: marked };
+    return next;
+  });
+}
+
+function mapMarkQuestionSkipped(
+  messages: ChatMessage[],
+  questionId: string,
+): ChatMessage[] {
+  return messages.map((m) => {
+    if (m.kind !== "question" || m.question.id !== questionId) {
+      return m;
+    }
+    const marked: FollowUpQuestion = {
+      ...m.question,
+      answered: false,
+      skipped: true,
+    };
     const next: ChatQuestionMessage = { ...m, question: marked };
     return next;
   });
@@ -72,6 +102,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     case "CLEAR_PENDING_PHOTOS":
       return { ...state, pendingPhotos: [] };
+    case "MERGE_PENDING_CONTEXT":
+      return {
+        ...state,
+        pendingContext: { ...state.pendingContext, ...action.contextPatch },
+      };
+    case "CLEAR_PENDING_CONTEXT":
+      return { ...state, pendingContext: {} };
     case "ADD_USER_TEXT": {
       const textMsg: ChatUserTextMessage = {
         ...baseMessage("user"),
@@ -100,15 +137,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, messages: [...state.messages, textMsg] };
     }
     case "ADD_REPORT_PREVIEW": {
-      const preview: ChatReportPreviewMessage = {
-        ...baseMessage("assistant"),
-        kind: "report_preview",
-        reportId: action.reportId,
-      };
       return {
         ...state,
         latestReportId: action.reportId,
-        messages: [...state.messages, preview],
       };
     }
     case "ADD_QUESTION": {
@@ -133,6 +164,22 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         role: "user",
         kind: "text",
         text: replyText,
+      };
+      return { ...state, messages: [...markedMessages, reply] };
+    }
+    case "MARK_QUESTION_ANSWERED": {
+      return {
+        ...state,
+        messages: mapMarkQuestionAnswered(state.messages, action.questionId),
+      };
+    }
+    case "SKIP_QUESTION": {
+      const markedMessages = mapMarkQuestionSkipped(state.messages, action.questionId);
+      const reply: ChatUserTextMessage = {
+        ...baseMessage("user"),
+        role: "user",
+        kind: "text",
+        text: action.skippedText,
       };
       return { ...state, messages: [...markedMessages, reply] };
     }

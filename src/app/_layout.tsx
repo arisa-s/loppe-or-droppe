@@ -20,8 +20,10 @@ export default function RootLayout() {
                 name="settings"
                 options={{ presentation: "modal" }}
               />
+              <Stack.Screen name="photo-guide" />
               <Stack.Screen name="saved" />
-              <Stack.Screen name="report/[id]" />
+              <Stack.Screen name="report/[id]/index" />
+              <Stack.Screen name="report/[id]/improve" />
             </Stack>
           </ReportProvider>
         </ChatProvider>

@@ -7,6 +7,8 @@
     "cancel": "Cancel",
     "send": "Send",
     "ok": "OK",
+    "yes": "Yes",
+    "no": "No",
     "listBullet": "–",
     "removeSymbol": "×"
   },
@@ -41,12 +43,17 @@
       "condition": {
         "obsMulti1": "General surface wear appears consistent with age.",
         "obsMulti2": "No major structural damage is visible in the supplied photos.",
-        "obsSingle": "Condition confidence is limited until more angles are supplied."
+        "obsSingle": "Condition confidence is limited until more angles are supplied.",
+        "obsSubmittedDetails": "Condition details were added by the user.",
+        "obsDamageReported": "The user reported visible condition issues that may affect value.",
+        "obsNoVisibleDamage": "The user reported no visible damage.",
+        "obsMakerMarkAdded": "A maker mark or signature photo was added."
       },
       "quality": {
         "item1": "Check for chips along rims, corners, handles, and feet.",
         "item2": "Inspect the base for maker marks, stamps, labels, or hand signatures.",
-        "item3": "Ask whether any cracks, repairs, or repainting are present."
+        "item3": "Ask whether any cracks, repairs, or repainting are present.",
+        "sizeProvided": "Size details have been provided; compare them with similar objects before buying."
       },
       "missingPhoto": {
         "mark": "Close-up of maker's mark, stamp, signature, or base",
@@ -60,14 +67,20 @@
       "sellerQuestion": {
         "item1": "Do you know the maker, studio, or previous owner?",
         "item2": "Has the piece had any repairs or restoration?",
-        "item3": "Is the asking price negotiable?"
+        "item3": "Is the asking price negotiable?",
+        "verifySignature": "Can the seller confirm the signature, stamp, or maker mark?"
       },
       "decision": {
         "reasonPortable": "The item appears portable and has enough decorative appeal to justify closer inspection.",
         "reasonDkkAssumption": "Suggested max price assumes DKK until a seller currency is provided.",
         "reasonWithSellerCurrency": "Suggested max price uses the seller currency supplied in context.",
+        "reasonNoVisibleDamage": "No visible damage was reported, which modestly improves confidence.",
+        "reasonPriceWithinMax": "The asking price is at or below the suggested max.",
+        "reasonMakerMarkAdded": "A maker mark photo improves attribution confidence.",
         "riskAttribution": "Attribution is provisional without a clear maker mark.",
-        "riskCondition": "Condition issues can materially change the valuation."
+        "riskCondition": "Condition issues can materially change the valuation.",
+        "riskReportedDamage": "Reported chips, cracks, or repairs lower the valuation.",
+        "riskPriceAboveMax": "The asking price is above the suggested max."
       }
     },
     "recommendation": {
@@ -88,11 +101,115 @@
       },
       "summary": {
         "initial": "Here is your first valuation snapshot.",
-        "answerUpdated": "I've updated the report with your answer.",
-        "photosUpdated": "I've updated the report with the new photos."
+        "answerUpdated": "Report updated. Confidence is {{confidence}}.",
+        "photosUpdated": "Report updated with the new photos. Confidence is {{confidence}}."
       },
       "sellerPrice": "Asking: {{price}} {{currency}}",
-      "maxPrice": "Max: {{price}} {{currency}}"
+      "maxPrice": "Max: {{price}} {{currency}}",
+      "period": "Period: {{period}}",
+      "keyRisk": "Risk",
+      "keyMissingCheck": "Missing",
+      "viewFullReport": "View full report"
+    },
+    "questionnaire": {
+      "summary": {
+        "preflightContext": "Here's what I captured from your answers:\n\n{{detail}}",
+        "chatAnswerUpdated": "{{detail}}\n\nI've updated the report with your answer.",
+        "formUpdated": "{{detail}}\n\nI updated the report using your answers. Valuation confidence is higher now, and the checklist has been adjusted.",
+        "line": "{{fieldLabel}}: {{valueText}}",
+        "photoCount_one": "{{count}} photo",
+        "photoCount_other": "{{count}} photos",
+        "extraPhotosLabel": "Additional photos",
+        "fallbackField": "Your answer"
+      }
+    },
+    "improvement": {
+      "card": {
+        "title": "Want me to make this more accurate?",
+        "description": "Add a few details when you have a moment.",
+        "cta": "Add details",
+        "estimatedTime": "About {{seconds}} sec"
+      },
+      "form": {
+        "title": "Improve this report",
+        "description": "Answer only what you know. Each detail helps improve confidence.",
+        "submit": "Update report",
+        "skip": "Skip",
+        "addPhoto": "Add photo",
+        "photoCount_one": "{{count}} photo selected",
+        "photoCount_other": "{{count}} photos selected",
+        "error": "I could not update the report. Please try again."
+      },
+      "summary": {
+        "available": "I generated a report based on the info you provided. Confidence is {{confidence}}.\n\nAdd details from the top card, or tell me anything else here, to improve the confidence level.",
+        "updated": "Report updated. Confidence is {{confidence}}."
+      },
+      "empty": {
+        "title": "No quick questions right now",
+        "body": "This report does not have a short improvement form available.",
+        "cta": "Back to report",
+        "backToReport": "Back to report"
+      },
+      "field": {
+        "sellerPrice": {
+          "label": "Seller asking price",
+          "help": "Enter the price shown by the seller before negotiation."
+        },
+        "sellerCurrency": {
+          "label": "Seller currency",
+          "help": "Choose the currency used for the asking price."
+        },
+        "buyingCountry": {
+          "label": "Buying country",
+          "help": "Where are you buying or viewing this object?"
+        },
+        "homeCountry": {
+          "label": "Home country",
+          "help": "Where would you take it home to?"
+        },
+        "purpose": {
+          "label": "Main purpose",
+          "help": "Choose how you would mainly use the object."
+        },
+        "makersMarkPhoto": {
+          "label": "Maker mark photo",
+          "help": "Add a close-up of any stamp, label, signature, or base mark."
+        },
+        "additionalPhotos": {
+          "label": "Additional helpful photos",
+          "help": "Add back/base, edge, or damage close-ups if you have them."
+        },
+        "conditionDetails": {
+          "label": "Visible condition issues",
+          "help": "Select any issues you can see in person."
+        },
+        "diameterOrSize": {
+          "label": "Diameter or size",
+          "help": "Approximate dimensions help estimate value and travel risk."
+        },
+        "visibleSignatureOrMark": {
+          "label": "Visible signature or mark",
+          "help": "Tell us whether you can see a signature, stamp, label, or maker mark."
+        }
+      },
+      "option": {
+        "DKK": "DKK",
+        "JPY": "JPY",
+        "USD": "USD",
+        "EUR": "EUR",
+        "GBP": "GBP",
+        "keep": "Keep",
+        "gift": "Gift",
+        "decorate": "Decorate",
+        "research": "Research",
+        "resell": "Resell",
+        "chips": "Chips",
+        "cracks": "Cracks",
+        "crazing": "Crazing",
+        "repairs": "Repairs",
+        "stains": "Stains",
+        "none": "No visible damage"
+      }
     },
     "detail": {
       "notFound": {
@@ -106,10 +223,25 @@
       "section": {
         "identity": "Identity",
         "period": "Period",
-        "condition": "Condition & Checklists",
+        "condition": "Condition",
         "decision": "Buy Decision",
         "travelCautions": "Travel Cautions",
-        "sellerQuestions": "Questions for the Seller"
+        "reasonsRisks": "Key reasons and risks",
+        "beforeYouBuy": "Before you buy",
+        "identityCondition": "Identity / condition",
+        "travelHandling": "Travel and handling"
+      },
+      "hero": {
+        "scoreLabel": "Worth bringing home",
+        "periodLabel": "Est. period",
+        "sellerPrice": "Asking",
+        "maxPrice": "Suggested max"
+      },
+      "empty": {
+        "noReasons": "No reasons listed.",
+        "noRisks": "No risks listed.",
+        "noChecklist": "Nothing to check yet.",
+        "noTravelCautions": "No travel cautions noted."
       },
       "field": {
         "objectName": "Object",
@@ -146,6 +278,71 @@
       }
     }
   },
+  "photoGuide": {
+    "title": "Photo guide",
+    "intro": "Good photos make the valuation faster and more reliable. Start with clear overall shots, then add close-ups of the details that prove age, maker, material, and condition.",
+    "openA11y": "Open detailed photo guide",
+    "selectA11y": "Choose object type",
+    "objectPrompt": "What kind of object are you inspecting?",
+    "objectsInstructionTitle": "What to photograph for {{object}}",
+    "general": {
+      "title": "General tips first",
+      "tip1": "Use bright, even light. Avoid harsh shadows, flash glare, and very warm indoor lighting when you can.",
+      "tip2": "Photograph the whole object on a plain background so the outline, proportions, and scale are easy to read.",
+      "tip3": "Add the back, underside, base, label, signature, stamp, or construction details. These often matter more than the front.",
+      "tip4": "Show condition honestly: chips, cracks, stains, repairs, loose parts, fading, and heavy wear should get close-ups."
+    },
+    "objects": {
+      "ceramics": {
+        "label": "Ceramics and porcelain",
+        "step1": "Take a straight front photo, a side profile, and a top view if the shape or rim matters.",
+        "step2": "Photograph the base clearly, including any stamp, impressed mark, signature, or old label.",
+        "step3": "Add close-ups of rims, handles, feet, cracks, chips, crazing, repairs, and glaze wear."
+      },
+      "glassware": {
+        "label": "Glassware",
+        "step1": "Shoot against a plain light or dark background so color, thickness, and transparency are visible.",
+        "step2": "Photograph the base, pontil mark, rim, seams, bubbles, signatures, and any etched marks.",
+        "step3": "Add close-ups of chips, scratches, cloudiness, cracks, and wear around the foot or rim."
+      },
+      "jewelry": {
+        "label": "Jewelry and watches",
+        "step1": "Capture the full piece from the front and back, plus a photo next to a coin or hand for scale.",
+        "step2": "Photograph hallmarks, maker marks, clasp details, watch faces, case backs, and movement marks if visible.",
+        "step3": "Show missing stones, worn plating, bent settings, scratches, loose clasps, and any repairs."
+      },
+      "prints": {
+        "label": "Prints, paintings, and posters",
+        "step1": "Take one straight-on photo of the whole image, including margins, frame, and visible edges.",
+        "step2": "Add close-ups of signatures, edition numbers, stamps, labels, paper texture, and the back.",
+        "step3": "Show tears, foxing, fading, water marks, frame damage, tape, and any restoration."
+      },
+      "furniture": {
+        "label": "Small furniture",
+        "step1": "Photograph front, side, back, top, and underside so construction and proportions are visible.",
+        "step2": "Add joinery, hardware, maker labels, screws, drawer interiors, feet, and upholstery details.",
+        "step3": "Show veneer loss, stains, wobble points, repairs, cracks, loose joints, and fabric wear."
+      },
+      "textiles": {
+        "label": "Textiles and rugs",
+        "step1": "Take a full flat photo plus a corner or edge so pattern, weave, and size are visible.",
+        "step2": "Photograph labels, seams, backs, fringe, embroidery, weave structure, and any maker tags.",
+        "step3": "Show holes, stains, fading, moth damage, repairs, thinning, odors if known, and worn edges."
+      },
+      "lamps": {
+        "label": "Lamps and lighting",
+        "step1": "Capture the full lamp or fixture, plus shade, base, switch, cord, plug, and mounting hardware.",
+        "step2": "Photograph labels, maker marks, socket details, material joins, and the underside of the base.",
+        "step3": "Show dents, cracks, rewiring, missing parts, shade stains, corrosion, and whether it works."
+      },
+      "silver": {
+        "label": "Silver and metalware",
+        "step1": "Photograph the full object, side profile, inside, handles, feet, and any removable parts.",
+        "step2": "Add close-ups of hallmarks, maker marks, assay marks, stamped numbers, and engraved initials.",
+        "step3": "Show dents, splits, worn plating, solder repairs, scratches, tarnish, and bent or loose parts."
+      }
+    }
+  },
   "chat": {
     "header": {
       "newAnalysis": "New analysis",
@@ -159,9 +356,36 @@
       }
     },
     "start": {
-      "requirePhotoPrompt": "Upload a photo of the object to begin. For the best report, include the front, back/base, maker's mark, rim/edge, and any damaged areas.",
+      "requirePhotoPrompt": "Found something at a flea market or vintage shop? Upload a photo and I'll help you decide if it's worth buying.",
       "photoRequiredReminder": "Please attach at least one photo before I can generate a report.",
-      "addPhotoButton": "Add a photo"
+      "photoRequiredFollowUp": "Got it — now add a photo of the object so I can run the analysis.",
+      "addPhotoButton": "Add photos",
+      "tipsHeading": "Our photo tips",
+      "tipsLearnMore": "Learn more ›",
+      "tipCards": {
+        "card1": {
+          "title": "Overall view",
+          "body": "Show the whole object on a simple, contrasting background so shape and scale are easy to judge."
+        },
+        "card2": {
+          "title": "Back or base",
+          "body": "Capture the underside or back—stamps, wear, and construction details often hide there."
+        },
+        "card3": {
+          "title": "Maker's mark",
+          "body": "Add a sharp close-up of any signature, stamp, label, or impressed mark."
+        },
+        "card4": {
+          "title": "Damage",
+          "body": "If you see chips, cracks, crazing, or repairs, a close-up keeps the assessment honest."
+        }
+      },
+      "photoGuidance": {
+        "front": "Front view",
+        "backBase": "Back or base",
+        "makersMark": "Maker's mark",
+        "damage": "Damage"
+      }
     },
     "status": {
       "analysing": "Analysing the object…"
@@ -170,10 +394,34 @@
       "analysisFailed": "I could not update the report. Please try again."
     },
     "composer": {
-      "inputPlaceholder": "Message\u2026",
+      "inputPlaceholder": "Describe the object, asking price, or where you found it…",
       "attachA11y": "Attach photos",
       "sendA11y": "Send message",
       "removePhotoA11y": "Remove photo"
+    },
+    "picker": {
+      "photosLabel": "Photos",
+      "allPhotos": "All Photos",
+      "cameraA11y": "Take a photo",
+      "recentPhotoA11y": "Select this photo"
+    },
+    "reportHeader": {
+      "photoAlt": "Uploaded photo",
+      "form": {
+        "editForm": "Add details",
+        "progress": "{{answered}}/{{total}} done",
+        "viewReport": "View report"
+      },
+      "decision": {
+        "decide": "My decision",
+        "bought": "✓ Bought it",
+        "passed": "✗ Passed",
+        "buy": "Bought it",
+        "pass": "Passed on it",
+        "clear": "Clear my decision",
+        "modalTitle": "What did you decide?",
+        "modalSubtitle": "Record your final call on this item."
+      }
     },
     "bubble": {
       "photoCount_one": "1 photo",
@@ -181,12 +429,21 @@
       "photoAlt": "Attached photo"
     },
     "followUp": {
+      "preflightIntro": "Before I make the report, a few quick answers will make the result more useful. You can skip anything.",
+      "skip": "Skip",
+      "skipped": "Skipped",
+      "answer": "Answer",
+      "numberPlaceholder": "Enter a number",
       "askSellerPrice": "What is the seller asking price?",
       "askSellerPriceReason": "Helps estimate whether the price is fair.",
+      "askSellerCurrency": "Which currency is the price in?",
+      "askSellerCurrencyReason": "Keeps the suggested max price in the right currency.",
       "askBuyingCountry": "Where are you buying this item?",
       "askBuyingCountryReason": "Affects import rules and authenticity context.",
-      "askHomeCountry": "Where would you bring or sell it?",
-      "askHomeCountryReason": "Needed to estimate carry-home cost and resale potential.",
+      "askHomeCountry": "Where would you take it home to?",
+      "askHomeCountryReason": "Helps estimate carry-home cost and travel context.",
+      "askPurpose": "What would you mainly use it for?",
+      "askPurposeReason": "Your goal changes how strict the recommendation should be.",
       "askMakersMarkPhoto": "Can you upload a close-up of the maker\u2019s mark?",
       "askMakersMarkPhotoReason": "A clear mark photo greatly improves attribution accuracy.",
       "askConditionDetails": "Do you see any chips, cracks, crazing, repairs, or stains?",
