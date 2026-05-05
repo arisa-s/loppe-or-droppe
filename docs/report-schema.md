@@ -297,18 +297,18 @@ type ObjectReport = {
 - `status` transitions: `initial -> updated`. After the first update, the report stays `"updated"` and only `version` changes.
 - `updatedAt` is refreshed on every change. `createdAt` is set once.
 - `userDecision` is set / cleared independently by `report.reducer.SET_USER_DECISION` and does not bump `version` (it is a UI annotation, not a piece of analysis evidence).
-- Previous versions are **not persisted** in MVP. Only the latest `ObjectReport` is kept.
+- Previous **report revisions** are not retained as separate rows or versions—the latest `ObjectReport` JSON stored in Postgres (and held in memory) replaces the prior content for that `report_id`. There is no audit trail of `version === 1` vs `2` blobs in the product.
 
 ## Single active object
 
-- MVP supports **one active `ObjectReport` at a time**. There is no list of past reports.
+- MVP supports **one active `ObjectReport` at a time** in navigation. Persistence can reload the latest session, but there is **no roster** of past reports in UI.
 - Starting a new analysis (via the chat header's "+" button) discards the current report and clears the chat history.
 - The route `src/app/report/[id]/index.tsx` resolves only when `[id] === currentReport.id`. Otherwise the screen renders a translated "report not found" empty state with a link back to the chat.
 - The improvement route `src/app/report/[id]/improve.tsx` follows the same rule and additionally falls back to a translated empty state when `report.improvementForm` is not present.
 
 ## Service signatures
 
-Services are async from day one so the surface does not change when real AI replaces the mocks:
+Services stay async whether the backing implementation is Edge Functions (**OpenRouter**) or the offline **mock** (`report.mockData`).
 
 ```ts
 // report.service.ts
@@ -358,7 +358,7 @@ function applyPhotos(
 - `generateInitial` rejects (throws) when `photos.length === 0`. `analyze` propagates that rejection.
 - `generateImprovementForm` is a deterministic projection used internally by both services to (re)build `ObjectReport.improvementForm`. It always returns a form object; the report-level signal that "no improvements remain" is the absence of `improvementForm` after `applyImprovementSubmission`.
 - `applyQuestionSkip` flips a `FollowUpQuestion`'s `skipped` flag and triggers a report rebuild so the analysis layer can react if needed.
-- Mock implementations resolve synchronously-equivalently (no real I/O) but must still return a `Promise`.
+- Edge-backed `generateInitial` / update helpers perform network + Storage work; mocks return deterministic `Promise` results when the backend is considered **unconfigured** (see [architecture.md](architecture.md#mock-fallback-behavior)).
 
 ## Improvement update rules
 
@@ -370,9 +370,9 @@ function applyPhotos(
 - A fresh `improvementForm` is rebuilt and re-attached after every update; if the rebuilt form has no remaining fields, the report is returned without `improvementForm`.
 - After the update, the chat posts an assistant text summary (`report.improvement.summary.updated`). The summary text is generated at the screen layer from the returned report and the submitted fields.
 
-## Score and recommendation (mock rule)
+## Score and recommendation (mock alignment)
 
-The mock service derives `decision.recommendation` from `decision.worthBringingHomeScore` using fixed thresholds (see `src/lib/recommendation.ts`). Real AI may compute them independently; the schema only requires both fields to be present and consistent.
+Offline **mock** reports derive `decision.recommendation` from `decision.worthBringingHomeScore` using fixed thresholds (see `src/lib/recommendation.ts`). Edge / OpenRouter output is **validated and canonicalized** in shared code; callers should treat `recommendation` + score as authoritative from the backend rather than recomputing from this table.
 
 | score range  | recommendation   |
 | ------------ | ---------------- |
@@ -387,7 +387,7 @@ There is **no FX conversion in MVP**. The "Converted price placeholder" UI eleme
 
 ## Mode invariant (MVP)
 
-- `report.mode === "basic"` for every report produced by the mock services in MVP.
+- `report.mode === "basic"` for every report surfaced in MVP (mock or Edge-produced).
 - The Seller Mode upsell card lives outside the report (it is a UI-only locked placeholder); enabling Seller Mode is a future change that flips a feature flag and unlocks Seller fields, not the `mode` enum value.
 
 ## Basic Mode vs Seller Mode visibility
@@ -402,7 +402,7 @@ There is **no FX conversion in MVP**. The "Converted price placeholder" UI eleme
 4. **Travel and handling** — `analysis.travelCautions` (only when non-empty).
 5. **Seller Mode upsell** — locked `SellerModeUpsellCard` (UI-only, not a report field).
 
-> **Known divergence from the original spec.** The mock engine still computes `analysis.qualityChecklist`, `analysis.missingPhotoChecklist`, and `analysis.sellerQuestions`, plus the converted-price placeholder caption, but the current `ReportDetail` does not render them. This is tracked as a follow-up: either the screen should render those sections, or the mock data should stop computing them. Both options are acceptable; pick one when revisiting the detail-screen layout. Until then, the canonical layout is the one above.
+> **Known divergence from the original spec.** The scaffolding still computes `analysis.qualityChecklist`, `analysis.missingPhotoChecklist`, and `analysis.sellerQuestions`, plus the converted-price placeholder caption, but the current `ReportDetail` does not render them. This is tracked as a follow-up: either the screen should render those sections, or the mock data should stop computing them. Both options are acceptable; pick one when revisiting the detail-screen layout. Until then, the canonical layout is the one above.
 
 ### Basic Mode never renders
 
@@ -418,7 +418,7 @@ Adds the items above (and a future `compsKeywords: string[]` field) on top of ev
 - A report cannot exist without at least one photo. `report.service.generateInitial` rejects empty `photos`.
 - Whenever an `ObjectReport` exists, `decision.recommendation` is populated and `version >= 1`.
 - `analysis` arrays are always arrays (possibly empty), never `undefined`.
-- `decision.recommendation` is consistent with `decision.worthBringingHomeScore` according to the mock rule above.
+- `decision.recommendation` should align with `decision.worthBringingHomeScore` after validation; mocks follow the thresholds table explicitly.
 - `report.mode === "basic"` in MVP.
 - Comps keywords never appear in any Basic Mode render path and the type does not include them.
 - The chat references the latest report by id only (`ChatState.latestReportId`); it never duplicates report fields in messages.

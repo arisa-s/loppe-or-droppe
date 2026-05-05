@@ -1,5 +1,6 @@
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useDisplayPhotoUris } from "../../lib/persistence/useDisplayPhotoUris";
 
 const THUMB = 52;
 
@@ -10,6 +11,7 @@ type Props = {
 
 export default function PhotoAttachmentPreview({ uris, onRemove }: Props) {
   const { t } = useTranslation();
+  const displayUris = useDisplayPhotoUris(uris);
 
   if (uris.length === 0) return null;
 
@@ -24,10 +26,10 @@ export default function PhotoAttachmentPreview({ uris, onRemove }: Props) {
       }}
       className="border-t border-neutral-100"
     >
-      {uris.map((uri) => (
+      {uris.map((uri, index) => (
         <View key={uri} style={{ width: THUMB, height: THUMB }}>
           <Image
-            source={{ uri }}
+            source={{ uri: displayUris[index] ?? uri }}
             style={{ width: THUMB, height: THUMB, borderRadius: 10 }}
             accessibilityLabel={t("chat.bubble.photoAlt")}
           />

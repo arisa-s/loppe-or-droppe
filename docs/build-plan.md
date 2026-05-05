@@ -2,6 +2,8 @@
 
 Implementation order for the MVP. Each task lists the files it touches, acceptance criteria, and what **not** to do. The plan reflects the current shipped behaviour.
 
+**Backend:** Configure `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`, enable anonymous auth, run migrations, set Edge secrets including `OPENROUTER_API_KEY`, and deploy **`generate-initial-report`** / **`generate-updated-report`** for OpenRouter-backed reports and remote persistence ([backend-setup.md](backend-setup.md), [architecture.md](architecture.md#backend-supabase-openrouter-and-mock-fallback)). Omitting client env yields mock reports only when `"backend_not_configured"` semantics apply—not a substitute for fixing a misconfigured Supabase project.
+
 ## Phase 1 — Scaffolding
 
 ### 1. Create the Expo Router app structure
@@ -52,22 +54,22 @@ Implementation order for the MVP. Each task lists the files it touches, acceptan
 
 - **Files:** `src/components/chat/ChatComposer.tsx`, `src/components/chat/PhotoAttachmentPreview.tsx`, `src/components/chat/PhotoPickerPanel.tsx`, `src/lib/photos.ts`.
 - **Done when:** the picker panel exposes "Take photo", "Pick from library", and recent shortcuts. `src/lib/photos.ts:pickPhotos()` calls `expo-image-picker` (`launchImageLibraryAsync`) and `takePhoto()` calls `launchCameraAsync`. Selected URIs are staged via `STAGE_PHOTOS`. If the picker call rejects (e.g. web blob failure or denied permission), the helpers fall back to a deterministic mock returning placeholder URIs so the rest of the flow stays exercisable. Sending dispatches `ADD_USER_PHOTOS` and then `CLEAR_PENDING_PHOTOS`.
-- **Do not:** upload anywhere. URIs stay local for MVP.
+- **When Supabase is configured:** new local URIs destined for backend report generation are uploaded to **`report-photos`** as part of `reportApiClient` (initial flow before `generate-initial-report`; updates after the report exists). Persisted chats still reference local URIs until those uploads run—the adapter stores `draft`/`pendingPhotos` as empty.
 
 ## Phase 3 — Report engine
 
-### 8. Implement mock report generation and the pre-flight loop
+### 8. Implement report generation and the pre-flight loop
 
-- **Files:** `src/features/report/report.service.ts`, `src/features/report/report.mockData.ts`.
+- **Files:** `src/features/report/report.service.ts`, `src/features/report/report.mockData.ts`, `src/features/report/ai/reportApiClient.ts`.
 - **Done when:**
-  - `generateInitial({ photos, userContext, previousQuestions? }): Promise<ObjectReport>` resolves with a fully-populated report (`status: "initial"`, `version: 1`, `mode: "basic"`, freshly-built `improvementForm`), `recommendation` derived from `worthBringingHomeScore` per the rule in [report-schema.md](report-schema.md#score-and-recommendation-mock-rule), and follow-up questions reflecting which high-value evidence is missing. Rejects when `photos.length === 0`.
-  - `analyze({ photos, userContext, freeText?, previousQuestions? }): Promise<AnalyzeResult>` infers `UserContext` patches from `freeText` (`parsePrice` / `inferCurrency` / `inferCountryCode`), runs `getPreFlightQuestions`, and either returns `{ kind: "questions", questions, userContext }` (when `seller-price`, `seller-currency`, `buying-country` are still missing and questions remain) or `{ kind: "report", report }` from `generateInitial`.
-- **Do not:** call any network API. Output must be deterministic for a given input. Do not return synchronously — `generateInitial` and `analyze` always return `Promise`.
+  - `generateInitial(...)` uploads photos when the Supabase client exists, invokes **`generate-initial-report`** with storage paths + context, validates the response; if the backend is unavailable (`getSupabaseClient()` null **or** `backend_not_configured` from Edge), falls back to the deterministic **mock** `ObjectReport`.
+  - `analyze(...)` still runs **`getPreFlightQuestions`** locally and either returns `{ kind: "questions", ... }` until seller price / currency / buying country exist, or calls `generateInitial` when context is satisfied. Rejects empty `photos` even on the mock path.
+- **Do not:** treat auth failures, Storage errors, or other provider errors as mock fallback—they must surface errors. Mock output must stay deterministic **only** for the fallback path above.
 
-### 9. Implement mock report update
+### 9. Implement report update (Edge + mock fallback)
 
-- **Files:** `src/features/report/report.updateService.ts`.
-- **Done when:** `generateImprovementForm(report): ReportImprovementForm`, `applyImprovementSubmission(report, submission): Promise<ObjectReport>`, `applyAnswer(report, answer): Promise<ObjectReport>`, `applyQuestionSkip(report, questionId): Promise<ObjectReport>`, and `applyPhotos(report, newPhotos): Promise<ObjectReport>` are implemented. Submissions, answers, skips, and new photos all resolve to a new `ObjectReport` with `status: "updated"`, incremented `version`, refreshed `updatedAt`, merged `userContext`, updated `analysis` / `decision` where evidence justifies it (with `recommendation` re-derived from the new score), and a regenerated `followUpQuestions` list (previously-answered / skipped questions kept with their flags). `applyImprovementSubmission` rebuilds `improvementForm`; if no fields remain, it returns the report **without** an `improvementForm` field.
+- **Files:** `src/features/report/report.updateService.ts`, `src/features/report/ai/reportApiClient.ts`.
+- **Done when:** `generateImprovementForm(report): ReportImprovementForm`, `applyImprovementSubmission`, `applyAnswer`, `applyQuestionSkip`, and `applyPhotos` call **`generate-updated-report`** when Supabase + session work; mirror the same **mock fallback rule** as `generateInitial`. Submissions, answers, skips, and new photos bump `version` and `updatedAt`; `applyImprovementSubmission` clears `improvementForm` when nothing remains.
 - **Do not:** mutate the input report. Always return a new object. Do not reintroduce a separate `applyImprovementForm` wrapper or an `applyContextUpdate` — context flows through `applyImprovementSubmission`'s well-known keys or `applyAnswer.contextPatch`.
 
 ### 10. Implement follow-up question and improvement-field generation
@@ -88,7 +90,7 @@ Implementation order for the MVP. Each task lists the files it touches, acceptan
 
 - **Files:** `src/app/report/[id]/improve.tsx`, `src/components/report/ReportImprovementForm.tsx`, `src/features/report/questionnaireSummary.ts`, `src/features/report/report.updateService.ts`, translation files.
 - **Done when:** tapping "Edit form" in `ChatReportHeader` pushes `/report/[id]/improve`. The screen reads `report.improvementForm` and renders it via `ReportImprovementForm`, which supports text / number / choice / multi_choice / boolean / photo fields and pre-fills values from the field's `value` or matching `userContext` slot. Submitting builds a `ReportImprovementSubmission` (a `values` map + optional `newPhotoUris`), calls `applyImprovementSubmission` once, summarises the structured answers via `summarizeImprovementSubmission`, posts a translated assistant summary in chat (`report.improvement.summary.updated`), and `router.replace("/")`s back to the chat. When `report.improvementForm` is absent the screen renders an "all set" empty state.
-- **Do not:** make the form mandatory. Do not generate a long questionnaire. Do not store valuation data in chat messages. Do not call real AI or remote APIs.
+- **Do not:** make the form mandatory. Do not generate a long questionnaire. Do not store valuation data in chat messages. Keep orchestration in the screen + services; no direct `functions.invoke` from components.
 
 ### 13. Implement the report detail screen
 
@@ -108,53 +110,53 @@ Implementation order for the MVP. Each task lists the files it touches, acceptan
 
 - **Files:** `src/app/settings.tsx`, `src/app/saved.tsx`, `src/app/photo-guide.tsx`, header inline in `src/app/index.tsx`.
 - **Done when:**
-  - Settings (presented modally) shows the mode indicator (Basic active, Seller locked) and a working language switcher (English ↔ Japanese) that re-renders all visible strings. The override is in-memory only — reload reverts to device locale (documented in DoD below).
+  - Settings (presented modally) shows the mode indicator (Basic active, Seller locked) and a working language switcher (English ↔ Japanese). When Supabase is configured, switching language persists `locale` on the chat session (`saveLanguage`); without Supabase, only the live session reflects the choice until reload.
   - The chat header exposes a "+" New-analysis button when a report exists; tapping it shows a translated confirm dialog and, on confirm, dispatches `RESET_FOR_NEW_ANALYSIS` + `RESET`.
   - The chat header exposes a "☰" hamburger that opens Settings.
   - The `/photo-guide` route shows general photo tips and object-specific 3-step guidance (ceramics, glassware, jewelry, prints, furniture, textiles, lamps, silver).
   - Saved screen renders a translated empty-state placeholder.
   - No language switcher in the chat header.
-- **Do not:** add account, billing, or notification settings yet. Do not persist the language preference to disk in MVP.
+- **Do not:** add account, billing, or notification settings yet.
 
 ### 16. Verify cross-platform parity
 
 - **Files:** none new; smoke-check across targets.
-- **Done when:** the full happy path works on iOS simulator, Android emulator, and the web bundle: open app → see required-photo prompt → upload photo(s) → answer the pre-flight questions (or send free text the engine can parse) → see the chat report header appear → tap "Edit form" → submit the improvement form → see the panel update with bumped version, refreshed donut progress, and a translated assistant summary in chat → answer a residual chat follow-up if one remains → toggle the shopping-bag "Bought" indicator → open report detail → switch language → see strings update.
+- **Done when:** the full happy path works on iOS simulator, Android emulator, and the web bundle with your target configuration: **mock-only** (no Expo Supabase env) and/or **full backend** (see [backend-setup.md — Smoke-test checklist](backend-setup.md#7-smoke-test-checklist)).
 - **Do not:** ship platform-specific divergences.
+
+### 17. Persistence (`PersistenceBridge`)
+
+- **Files:** `src/lib/persistence/index.ts`, `src/lib/persistence/useDisplayPhotoUris.ts`, `src/lib/supabase/*`, `supabase/migrations/*`, `_layout.tsx` (`PersistenceBridge`).
+- **Done when:** `loadState()` runs on boot (`HYDRATE` chat + report). `saveReport` / `saveChatState` / `saveLanguage` run after hydration when state is meaningful (RLS-bound to the anonymous or signed-in user). Storage refs in `ObjectReport.photos` resolve for display via signed URLs. Failures (except `auth_required` on save) show `common.persistenceWarning`.
+- **Do not:** couple reducers to Supabase; keep IO in `lib/persistence` and `reportApiClient`.
 
 ## Definition of done (MVP)
 
 - App opens and runs on iOS, Android, and Web.
 - The photo-upload gate blocks analysis until at least one photo is attached.
 - The pre-flight question loop (`analyze`) gathers seller price + currency + buying country before generating the initial report.
-- An initial `ObjectReport` is generated by `report.service.generateInitial` (awaited) and surfaced through `ChatReportHeader` above the chat message list.
+- An initial `ObjectReport` is produced by `report.service.generateInitial` (OpenRouter via Edge when configured, else mock when unconfigured) and surfaced through `ChatReportHeader` above the chat message list.
 - At least one structured improvement loop flows through `report.updateService.applyImprovementSubmission`, increments `version` once, and posts an assistant summary message.
 - Bubble-style follow-up questions remain supported through `report.updateService.applyAnswer` / `applyQuestionSkip` for pre-flight and residual post-report atomic questions.
 - Tapping the report panel's "View report" / report area opens the detail screen, which renders all visible Basic Mode sections from the latest `ObjectReport`.
 - Visiting `/report/[id]` for an unknown id (and `/report/[id]/improve` for an unknown id or a report without an improvement form) shows a translated empty state.
 - A working "+" New-analysis button discards the current report and clears the chat.
 - The shopping-bag toggle in `ChatReportHeader` flips `report.userDecision` between `"buy"` and unset.
-- Switching language in Settings re-renders every visible string in both English and Japanese. Reloading the app reverts to the device locale (in-memory preference is acceptable for MVP).
+- Switching language in Settings re-renders strings; with Supabase enabled, the choice is restored on next launch from `chat_sessions.locale`. Without Supabase, reload follows the device locale.
 - The locked Seller Mode upsell card is visible inside the report.
 - TypeScript strict (`strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes`), no `any`, no untranslated visible strings.
 
-## Replacement checklist (post-MVP)
+## Follow-ups (not done)
 
-When adding **real AI**:
+- **Saved reports / history UI** — `saved.tsx` remains a placeholder; DB can hold rows but no list/browse flow ships yet.
+- **Pre-flight driven by multimodal AI** — `analyze` still uses fixed `getPreFlightQuestions` + parsers; replacing that with vision-backed questioning is separate from the Edge `generate-*` stubs.
+- **Payments / Seller Mode unlock** — same as before (`SellerModeUpsellCard`).
+- **`ai_runs` / submission audit tables** — see [backend-setup.md — Deferred persistence](backend-setup.md#deferred-persistence-intentionally-out-of-the-initial-schema).
 
-- Replace the bodies of `src/features/report/report.service.ts:generateInitial` / `analyze` and `src/features/report/report.updateService.ts:applyImprovementSubmission` / `applyAnswer` / `applyQuestionSkip` / `applyPhotos`. Keep their signatures and return shapes.
-- Replace `src/features/report/report.updateService.ts:generateImprovementForm` (and the `buildReportImprovementForm` builder in `report.mockData.ts`) with model-backed logic only when real AI lands. Keep the short-form contract and one-submission-one-report-update behavior.
-- Move any model / prompt configuration into a new `src/features/report/ai/` folder; keep components and reducers untouched.
-- Continue surfacing loading + error states at the screen layer (the chat screen already has `isAnalysing` + the typing-dots row, and the improvement screen has `isSubmitting` + an error banner).
+## Completed integration notes (reference)
 
-When adding **Supabase**:
+Report generation and persistence wiring:
 
-- Add `src/lib/persistence/` with a typed adapter (`loadState`, `saveReport`, `saveChatState`, `saveLanguage`).
-- Hydrate chat and report state on app boot inside `src/app/_layout.tsx`.
-- Write through on `SET_REPORT`, `ADD_REPORT_PREVIEW`, `SET_USER_DECISION`, and language overrides. Do not couple components to the adapter.
-
-When adding **payments / Seller Mode**:
-
-- Replace the locked state in `SellerModeUpsellCard` with a real entitlement check from a feature flag exposed via context.
-- Render Seller Mode fields in `ReportDetail` only when the entitlement is true; mock data + service can already produce them once unlocked.
-- Do not change `ObjectReport` shape; Seller fields are additive and computed by the service.
+- **`src/features/report/ai/reportApiClient.ts`** — uploads, `functions.invoke`, `isBackendUnavailableError` / `ReportBackendError`.
+- **`supabase/functions/generate-initial-report`**, **`generate-updated-report`** — OpenRouter (`_shared/openrouter.ts`), signed photo URLs (`_shared/storage.ts`).
+- **`src/lib/persistence/index.ts`** — `loadState` / saves / Storage helpers; **`useDisplayPhotoUris`** — image display URLs.

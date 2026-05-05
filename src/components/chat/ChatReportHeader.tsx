@@ -8,6 +8,7 @@ import ScoreBadge from "../report/ScoreBadge";
 import CameraIcon from "../icons/CameraIcon";
 import ShoppingBagIcon from "../icons/ShoppingBagIcon";
 import DonutProgress from "../ui/DonutProgress";
+import { useDisplayPhotoUri } from "../../lib/persistence/useDisplayPhotoUris";
 
 type Props = {
   report: ObjectReport;
@@ -24,6 +25,7 @@ export default function ChatReportHeader({ report, onSetDecision }: Props) {
   const d = (v: string) => reportDisplayText(t, v);
 
   const firstPhoto = photos[0];
+  const firstPhotoDisplayUri = useDisplayPhotoUri(firstPhoto);
 
   const answeredCount = improvementForm
     ? improvementForm.fields.filter((f) => f.value !== undefined && f.value !== null).length
@@ -54,9 +56,9 @@ export default function ChatReportHeader({ report, onSetDecision }: Props) {
       <View className="border-b border-neutral-100 bg-white px-4 py-3">
         {/* Top row: photo + info + score */}
         <View className="flex-row items-center gap-3">
-          {firstPhoto !== undefined ? (
+          {firstPhotoDisplayUri !== undefined ? (
             <Image
-              source={{ uri: firstPhoto }}
+              source={{ uri: firstPhotoDisplayUri }}
               style={{ width: PHOTO_SIZE, height: PHOTO_SIZE, borderRadius: 10 }}
               accessibilityLabel={t("chat.reportHeader.photoAlt")}
             />

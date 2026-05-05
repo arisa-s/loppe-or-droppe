@@ -10,7 +10,9 @@
     "yes": "はい",
     "no": "いいえ",
     "listBullet": "–",
-    "removeSymbol": "×"
+    "removeSymbol": "×",
+    "loading": "読み込み中…",
+    "persistenceWarning": "保存済みの状態を現在利用できません。モックのフローは引き続き使用できます。"
   },
   "saved": {
     "phase1Title": "保存したレポート",
@@ -138,7 +140,8 @@
         "addPhoto": "写真を追加",
         "photoCount_one": "写真{{count}}枚を選択済み",
         "photoCount_other": "写真{{count}}枚を選択済み",
-        "error": "レポートを更新できませんでした。もう一度お試しください。"
+        "error": "レポートを更新できませんでした。もう一度お試しください。",
+        "photoUploadError": "選択した写真を安全にアップロードできませんでした。もう一度お試しください。"
       },
       "summary": {
         "available": "いただいた情報をもとにレポートを作成しました。信頼度は「{{confidence}}」です。\n\n信頼度を上げるには、上のカードから詳細を追加するか、このチャットで分かることを教えてください。",
@@ -391,7 +394,8 @@
       "analysing": "オブジェクトを分析しています…"
     },
     "error": {
-      "analysisFailed": "レポートを更新できませんでした。もう一度お試しください。"
+      "analysisFailed": "レポートを更新できませんでした。もう一度お試しください。",
+      "photoUploadFailed": "写真を安全にアップロードできなかったため、今はローカルの写真を使用しています。"
     },
     "composer": {
       "inputPlaceholder": "品物の説明、希望価格、発見場所などを入力…",

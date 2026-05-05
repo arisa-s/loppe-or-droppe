@@ -5,6 +5,7 @@ export type ReportState = {
 };
 
 export type ReportAction =
+  | { type: "HYDRATE"; state: ReportState }
   | { type: "SET_REPORT"; report: ObjectReport }
   | { type: "SET_USER_DECISION"; decision: UserDecision | null }
   | { type: "RESET" };
@@ -18,6 +19,8 @@ export function reportReducer(
   action: ReportAction,
 ): ReportState {
   switch (action.type) {
+    case "HYDRATE":
+      return action.state;
     case "SET_REPORT":
       return { current: action.report };
     case "SET_USER_DECISION":

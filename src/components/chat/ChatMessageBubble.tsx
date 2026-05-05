@@ -3,6 +3,7 @@ import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { ChatMessage } from "../../features/chat/chat.types";
 import type { FollowUpQuestion } from "../../features/report/report.types";
+import { useDisplayPhotoUris } from "../../lib/persistence/useDisplayPhotoUris";
 
 type QuestionAnswerInput = {
   text?: string;
@@ -23,12 +24,13 @@ const THUMB_SIZE = 80;
 
 function PhotoGrid({ uris }: { uris: string[] }) {
   const { t } = useTranslation();
+  const displayUris = useDisplayPhotoUris(uris);
   return (
     <View className="flex-row flex-wrap gap-1">
-      {uris.map((uri) => (
+      {uris.map((uri, index) => (
         <Image
           key={uri}
-          source={{ uri }}
+          source={{ uri: displayUris[index] ?? uri }}
           style={{ width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: 8 }}
           accessibilityLabel={t("chat.bubble.photoAlt")}
         />

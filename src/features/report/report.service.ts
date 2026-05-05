@@ -7,6 +7,11 @@ import {
   buildReportImprovementForm,
   getPreFlightQuestions,
 } from "./report.mockData";
+import {
+  generateInitialReportWithBackend,
+  isBackendUnavailableError,
+  ReportBackendError,
+} from "./ai/reportApiClient";
 import type { FollowUpQuestion, ObjectReport, UserContext } from "./report.types";
 
 type GenerateInitialInput = {
@@ -118,6 +123,25 @@ export async function generateInitial(
 ): Promise<ObjectReport> {
   if (input.photos.length === 0) {
     throw new Error("At least one photo is required to generate a report.");
+  }
+
+  const backendResult = await generateInitialReportWithBackend({
+    photos: input.photos,
+    userContext: input.userContext,
+    ...(input.previousQuestions === undefined
+      ? {}
+      : { previousQuestions: input.previousQuestions }),
+  });
+  if (backendResult.ok) {
+    return backendResult.report;
+  }
+  if (!isBackendUnavailableError(backendResult.error)) {
+    // The Supabase client and the Edge Function were reachable; surface the
+    // real error instead of silently fabricating a mock report.
+    throw new ReportBackendError(
+      backendResult.error.code,
+      backendResult.error.message,
+    );
   }
 
   const photos = [...input.photos];

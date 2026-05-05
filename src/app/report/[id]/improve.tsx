@@ -15,7 +15,16 @@ import {
   summarizeImprovementSubmission,
 } from "../../../features/report/questionnaireSummary";
 import { applyImprovementSubmission } from "../../../features/report/report.updateService";
-import type { ReportImprovementSubmission } from "../../../features/report/report.types";
+import type {
+  ReportImprovementSubmission,
+  ReportImprovementFieldValue,
+} from "../../../features/report/report.types";
+import {
+  replaceUploadedPhotoUris,
+  saveReport,
+  uploadReportPhotos,
+  type UploadedReportPhoto,
+} from "../../../lib/persistence";
 import { pickPhotos } from "../../../lib/photos";
 
 function normalizeIdParam(value: string | string[] | undefined): string {
@@ -26,6 +35,38 @@ function normalizeIdParam(value: string | string[] | undefined): string {
     return value[0];
   }
   return "";
+}
+
+function replacementMap(uploadedPhotos: UploadedReportPhoto[]): Record<string, string> {
+  return Object.fromEntries(
+    uploadedPhotos.map((photo) => [photo.localUri, photo.storageRef]),
+  );
+}
+
+function replaceSubmissionPhotos(
+  submission: ReportImprovementSubmission,
+  uploadedPhotos: UploadedReportPhoto[],
+): ReportImprovementSubmission {
+  const replacements = replacementMap(uploadedPhotos);
+  const values: Record<string, ReportImprovementFieldValue> = {};
+
+  for (const [key, value] of Object.entries(submission.values)) {
+    values[key] = Array.isArray(value)
+      ? value.map((uri) => replacements[uri] ?? uri)
+      : value;
+  }
+
+  return {
+    ...submission,
+    values,
+    ...(submission.newPhotoUris === undefined
+      ? {}
+      : {
+          newPhotoUris: submission.newPhotoUris.map(
+            (uri) => replacements[uri] ?? uri,
+          ),
+        }),
+  };
 }
 
 export default function ReportImprovementScreen() {
@@ -56,18 +97,37 @@ export default function ReportImprovementScreen() {
       try {
         setIsSubmitting(true);
         setErrorKey(null);
-        const next = await applyImprovementSubmission(report, submission);
+        const submittedPhotoUris =
+          report.improvementForm !== undefined
+            ? submittedImprovementPhotoUris(report.improvementForm, submission)
+            : [];
+        const saveResult = await saveReport(report);
+        if (!saveResult.ok) {
+          setErrorKey("report.improvement.form.photoUploadError");
+          return;
+        }
+        const uploadResult = await uploadReportPhotos(report.id, submittedPhotoUris);
+        if (!uploadResult.ok) {
+          setErrorKey("report.improvement.form.photoUploadError");
+          return;
+        }
+
+        const persistedSubmission = replaceSubmissionPhotos(
+          submission,
+          uploadResult.data,
+        );
+        const next = await applyImprovementSubmission(report, persistedSubmission);
         reportDispatch({ type: "SET_REPORT", report: next });
         const formDetail =
           report.improvementForm !== undefined
             ? summarizeImprovementSubmission(t, report.improvementForm, submission)
             : "";
-        const submittedPhotoUris =
-          report.improvementForm !== undefined
-            ? submittedImprovementPhotoUris(report.improvementForm, submission)
-            : [];
-        if (submittedPhotoUris.length > 0) {
-          chatDispatch({ type: "ADD_USER_PHOTOS", imageUris: submittedPhotoUris });
+        const persistedPhotoUris = replaceUploadedPhotoUris(
+          submittedPhotoUris,
+          uploadResult.data,
+        );
+        if (persistedPhotoUris.length > 0) {
+          chatDispatch({ type: "ADD_USER_PHOTOS", imageUris: persistedPhotoUris });
         }
         if (formDetail.length > 0) {
           chatDispatch({ type: "ADD_USER_TEXT", text: formDetail });

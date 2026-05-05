@@ -2,6 +2,11 @@ import { nowIso } from "../../lib/dates";
 import { newId } from "../../lib/id";
 import { recommendationFromScore } from "../../lib/recommendation";
 import {
+  generateUpdatedReportWithBackend,
+  isBackendUnavailableError,
+  ReportBackendError,
+} from "./ai/reportApiClient";
+import {
   buildFollowUpQuestions,
   buildMockAnalysis,
   buildMockDecision,
@@ -381,6 +386,19 @@ export async function applyImprovementSubmission(
     throw new Error("Improvement form submission does not match the report.");
   }
 
+  const backendResult = await generateUpdatedReportWithBackend({
+    operation: "improvement_submission",
+    report,
+    submission,
+  });
+  if (backendResult.ok) return backendResult.report;
+  if (!isBackendUnavailableError(backendResult.error)) {
+    throw new ReportBackendError(
+      backendResult.error.code,
+      backendResult.error.message,
+    );
+  }
+
   const updatedAt = nowIso();
   const photos = uniqueStrings([...report.photos, ...submittedReportPhotos(submission)]);
   const userContext = mergeUserContext(
@@ -437,6 +455,19 @@ export async function applyAnswer(
   report: ObjectReport,
   answer: Answer,
 ): Promise<ObjectReport> {
+  const backendResult = await generateUpdatedReportWithBackend({
+    operation: "answer",
+    report,
+    answer,
+  });
+  if (backendResult.ok) return backendResult.report;
+  if (!isBackendUnavailableError(backendResult.error)) {
+    throw new ReportBackendError(
+      backendResult.error.code,
+      backendResult.error.message,
+    );
+  }
+
   const answerPhotos = answer.imageUris ?? [];
   const photos = [...report.photos, ...answerPhotos];
   const userContext = mergeUserContext(report.userContext, answer.contextPatch);
@@ -457,6 +488,19 @@ export async function applyQuestionSkip(
   report: ObjectReport,
   questionId: string,
 ): Promise<ObjectReport> {
+  const backendResult = await generateUpdatedReportWithBackend({
+    operation: "skip_question",
+    report,
+    questionId,
+  });
+  if (backendResult.ok) return backendResult.report;
+  if (!isBackendUnavailableError(backendResult.error)) {
+    throw new ReportBackendError(
+      backendResult.error.code,
+      backendResult.error.message,
+    );
+  }
+
   const followUpQuestions = markQuestionSkipped(report.followUpQuestions, questionId);
 
   return buildUpdatedReport({
@@ -471,6 +515,19 @@ export async function applyPhotos(
   report: ObjectReport,
   newPhotos: string[],
 ): Promise<ObjectReport> {
+  const backendResult = await generateUpdatedReportWithBackend({
+    operation: "photos",
+    report,
+    newPhotos,
+  });
+  if (backendResult.ok) return backendResult.report;
+  if (!isBackendUnavailableError(backendResult.error)) {
+    throw new ReportBackendError(
+      backendResult.error.code,
+      backendResult.error.message,
+    );
+  }
+
   const photos = [...report.photos, ...newPhotos];
   const followUpQuestions = report.followUpQuestions.map((question) => ({ ...question }));
 

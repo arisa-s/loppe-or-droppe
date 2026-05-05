@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Screen from "../components/ui/Screen";
-import { setAppLanguage } from "../features/i18n";
+import { setAppLanguage, type AppLanguage } from "../features/i18n";
+import { saveLanguage } from "../lib/persistence";
 
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
@@ -14,6 +15,10 @@ export default function SettingsScreen() {
     resolved.toLowerCase().startsWith("ja")
       ? t("settings.languageJapanese")
       : t("settings.languageEnglish");
+  const handleSetLanguage = async (language: AppLanguage) => {
+    await setAppLanguage(language);
+    void saveLanguage(language);
+  };
 
   return (
     <Screen className="bg-neutral-50">
@@ -32,12 +37,16 @@ export default function SettingsScreen() {
             <Button
               variant="muted"
               label={t("settings.languageEnglish")}
-              onPress={() => setAppLanguage("en")}
+              onPress={() => {
+                void handleSetLanguage("en");
+              }}
             />
             <Button
               variant="muted"
               label={t("settings.languageJapanese")}
-              onPress={() => setAppLanguage("ja")}
+              onPress={() => {
+                void handleSetLanguage("ja");
+              }}
             />
           </View>
         </Card>

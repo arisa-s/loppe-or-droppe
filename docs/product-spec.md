@@ -6,6 +6,8 @@ Loppe or Droppe is an AI travel shopping assistant for vintage, antique, decorat
 
 Codename / repo: **loppe-or-droppe**. Product-facing name: **Loppe or Droppe**.
 
+The shipping app can run **fully offline** with deterministic mock valuations, or—with Supabase + deployed Edge Functions—use **OpenRouter** for structured JSON reports while persisting chat/report state and photos.
+
 ## Platforms
 
 - iOS, Android, and Web from day one.
@@ -19,8 +21,8 @@ Codename / repo: **loppe-or-droppe**. Product-facing name: **Loppe or Droppe**.
 1. User opens the app and lands on the chat screen.
 2. The assistant requires at least one photo before any analysis can start.
 3. User uploads one or more photos of the object via the picker, the camera, or the `RequiredPhotoStart` slots.
-4. App runs a short **pre-flight question loop** to collect the minimum context it needs (seller price + currency, buying country, and optionally purpose). Free text the user types is also parsed for these fields when possible.
-5. App generates an **initial Object Valuation Report** using the mock AI.
+4. App runs a short **pre-flight question loop** to collect the minimum context it needs (seller price + currency, buying country, and optionally purpose). Free text the user types is also parsed for these fields when possible (client-side parsers).
+5. App produces an **initial Object Valuation Report**: when Supabase and Edge Functions are configured, **`generate-initial-report`** runs **OpenRouter** on signed photo URLs; otherwise the deterministic **offline mock** fills the same `ObjectReport` shape (`backend_not_configured` semantics only—not for auth/API errors).
 6. The chat screen renders a persistent `ChatReportHeader` panel above the message list with the score, recommendation, object name, prices, a primary action button, and a "Bought" toggle.
 7. If the report has missing evidence, the panel's primary action is **Edit form** (with a small donut showing how many improvement-form fields are answered). Otherwise it falls back to **View report**.
 8. Tapping **Edit form** navigates to a dedicated improvement screen that renders a short object-specific form generated from the report's missing evidence (text / number / choice / multi-choice / boolean / photo fields).
@@ -53,7 +55,7 @@ Codename / repo: **loppe-or-droppe**. Product-facing name: **Loppe or Droppe**.
 - **Report Improvement screen** (`/report/[id]/improve`) — short object-specific form opened from the chat panel's "Edit form" button. Renders the latest report's `improvementForm`, submits once, and returns the user to chat after the report update summary is posted.
 - **Report Detail screen** (`/report/[id]`) — full structured report rendered from the latest `ObjectReport`.
 - **Photo Guide** (`/photo-guide`) — general photo tips and per-object-type 3-step guidance.
-- **Saved Reports** — placeholder screen for now.
+- **Saved Reports** — placeholder only; no browse/list of stored reports yet (data may still exist in Postgres for the signed-in anonymous user).
 - **Settings** — language switcher, mode indicator, future account / billing.
 
 ## Modes
@@ -63,21 +65,27 @@ Codename / repo: **loppe-or-droppe**. Product-facing name: **Loppe or Droppe**.
 
 Seller Mode (future) adds: estimated resale range, local-vs-target market comparison, all-in cost, expected gross profit + margin, sell-through confidence, recommended max purchase price, suggested listing title + description, export option.
 
-## Single active object
+## Single active object (UX)
 
-MVP supports one active object at a time. There is no list of past reports.
+The **navigation model** stays single-object: one pinned `ObjectReport` drives the chat panel and routes. There is **no in-app history list** yet even though Supabase can persist the latest session for reload.
 
-- Starting a "New analysis" discards the current report and clears the chat history. The `Saved Reports` screen is an empty placeholder until persistence lands.
+- Starting a "New analysis" discards the **in-memory** workflow and clears chat as before; remote rows are not purged automatically in this MVP (no multi-report management UI).
 - Opening the report detail route (`/report/[id]`) for an `[id]` that does not match the current report renders a translated "report not found" empty state with a link back to the chat.
 - The improvement route (`/report/[id]/improve`) follows the same rule and additionally falls back to a translated "all set" empty state when the current report has no `improvementForm`.
 
-## Out of scope for MVP
+## Out of scope (still)
 
-- Real AI / vision models.
-- Supabase or any remote persistence.
-- Payments / subscriptions.
+- Vision-driven **pre-flight** questioning (today the loop uses fixed questions + parsers; multimodal branching is separate from Edge report generation).
+- **Saved Reports** product surface beyond the empty `/saved` route.
+- Payments / subscriptions and Seller Mode unlock.
+- FX conversion UX beyond the placeholder caption.
 - Comps search keywords in Basic Mode UI.
-- Dashboards, analytics, history timelines beyond the Saved placeholder.
+- Dashboards and server-side **`ai_runs`** / submission audit timelines (tables may exist only when explicitly added alongside consumers—see [backend-setup.md](backend-setup.md#deferred-persistence-intentionally-out-of-the-initial-schema)).
+
+## Implemented but not expanded here
+
+- **Supabase** persistence (latest chat + latest report blob + photos bucket) behind anonymous auth.
+- **OpenRouter**-backed **`generate-*` Edge Functions** for initial and updated structured reports.
 
 ## Example copy (translation keys, not literals)
 

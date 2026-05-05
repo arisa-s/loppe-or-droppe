@@ -37,11 +37,18 @@ import { getPostReportChatQuestions } from "../features/report/report.mockData";
 import type {
   Answer,
   FollowUpQuestion,
+  ObjectReport,
   Purpose,
   UserContext,
   UserDecision,
 } from "../features/report/report.types";
 import { webMaxWidthContentStyle } from "../lib/layout";
+import {
+  replaceUploadedPhotoUris,
+  saveReport,
+  uploadReportPhotos,
+  type UploadedReportPhoto,
+} from "../lib/persistence";
 import { pickPhotos, takePhoto } from "../lib/photos";
 
 const priorityRank: Record<FollowUpQuestion["priority"], number> = {
@@ -151,6 +158,30 @@ function buildAnswer(input: {
   };
 }
 
+function uploadedPhotoReplacements(
+  uploadedPhotos: UploadedReportPhoto[],
+): Record<string, string> {
+  return Object.fromEntries(
+    uploadedPhotos.map((photo) => [photo.localUri, photo.storageRef]),
+  );
+}
+
+function reportPhotoReplacements(
+  before: string[],
+  after: string[],
+): Record<string, string> {
+  if (before.length !== after.length) {
+    return {};
+  }
+  return Object.fromEntries(
+    before
+      .map((uri, index) => [uri, after[index]] as const)
+      .filter((entry): entry is readonly [string, string] =>
+        entry[1] !== undefined && entry[0] !== entry[1],
+      ),
+  );
+}
+
 export default function ChatScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -216,6 +247,49 @@ export default function ChatScreen() {
     [dispatch, state.messages],
   );
 
+  const uploadPhotosForReport = useCallback(
+    async (
+      baseReport: ObjectReport,
+      photoUris: string[],
+    ): Promise<{ report: ObjectReport; uploadedPhotos: UploadedReportPhoto[] }> => {
+      const saveResult = await saveReport(baseReport);
+      if (!saveResult.ok) {
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "chat.error.photoUploadFailed",
+        });
+        return { report: baseReport, uploadedPhotos: [] };
+      }
+
+      const uploadResult = await uploadReportPhotos(baseReport.id, photoUris);
+      if (!uploadResult.ok) {
+        dispatch({
+          type: "ADD_ASSISTANT_TEXT",
+          textKey: "chat.error.photoUploadFailed",
+        });
+        return { report: baseReport, uploadedPhotos: [] };
+      }
+
+      const uploadedPhotos = uploadResult.data;
+      if (uploadedPhotos.length === 0) {
+        return { report: baseReport, uploadedPhotos };
+      }
+
+      const nextReport: ObjectReport = {
+        ...baseReport,
+        photos: replaceUploadedPhotoUris(baseReport.photos, uploadedPhotos),
+      };
+      void saveReport(nextReport);
+      dispatch({
+        type: "REPLACE_PHOTO_URIS",
+        replacements: uploadedPhotoReplacements(uploadedPhotos),
+      });
+
+      return { report: nextReport, uploadedPhotos };
+    },
+    [dispatch],
+  );
+
   const runAnalyze = useCallback(
     async (input: {
       photos: string[];
@@ -228,14 +302,25 @@ export default function ChatScreen() {
         const result = await analyze(input);
 
         if (result.kind === "report") {
-          reportDispatch({ type: "SET_REPORT", report: result.report });
+          const replacements = reportPhotoReplacements(
+            input.photos,
+            result.report.photos,
+          );
+          if (Object.keys(replacements).length > 0) {
+            dispatch({ type: "REPLACE_PHOTO_URIS", replacements });
+          }
+          const uploaded = await uploadPhotosForReport(
+            result.report,
+            result.report.photos,
+          );
+          reportDispatch({ type: "SET_REPORT", report: uploaded.report });
           dispatch({ type: "CLEAR_PENDING_CONTEXT" });
-          dispatch({ type: "ADD_REPORT_PREVIEW", reportId: result.report.id });
+          dispatch({ type: "ADD_REPORT_PREVIEW", reportId: uploaded.report.id });
           dispatch({
             type: "ADD_ASSISTANT_TEXT",
             textKey: "report.improvement.summary.available",
             textOptions: {
-              confidence: t(`report.confidence.${result.report.analysis.confidence}`),
+              confidence: t(`report.confidence.${uploaded.report.analysis.confidence}`),
             },
           });
           return;
@@ -266,7 +351,7 @@ export default function ChatScreen() {
         setIsAnalysing(false);
       }
     },
-    [dispatch, reportDispatch, state.messages, t],
+    [dispatch, reportDispatch, state.messages, t, uploadPhotosForReport],
   );
 
   const handleSend = useCallback(async () => {
@@ -353,11 +438,19 @@ export default function ChatScreen() {
         return;
       }
 
+      const evidencePhotos =
+        hasPhotos
+          ? replaceUploadedPhotoUris(
+              photos,
+              (await uploadPhotosForReport(report, photos)).uploadedPhotos,
+            )
+          : photos;
+
       if (isSubmittingAnswer && activeQuestion !== null) {
         const answer = buildAnswer({
           question: activeQuestion,
           text,
-          imageUris: photos,
+          imageUris: evidencePhotos,
         });
         dispatch({ type: "MARK_QUESTION_ANSWERED", questionId: activeQuestion.id });
         const next = await applyAnswer(report, answer);
@@ -379,7 +472,7 @@ export default function ChatScreen() {
       }
 
       if (hasPhotos) {
-        const next = await applyPhotos(report, photos);
+        const next = await applyPhotos(report, evidencePhotos);
         reportDispatch({ type: "SET_REPORT", report: next });
         dispatch({ type: "ADD_REPORT_PREVIEW", reportId: next.id });
         dispatch({
@@ -411,6 +504,7 @@ export default function ChatScreen() {
     maybeAskPostReportQuestion,
     runAnalyze,
     t,
+    uploadPhotosForReport,
   ]);
 
   const handleAnswerQuestion = useCallback(
@@ -457,8 +551,20 @@ export default function ChatScreen() {
 
       try {
         setIsAnalysing(true);
+        const evidenceImageUris =
+          imageUris.length > 0
+            ? replaceUploadedPhotoUris(
+                imageUris,
+                (await uploadPhotosForReport(report, imageUris)).uploadedPhotos,
+              )
+            : imageUris;
+        const evidenceAnswer = buildAnswer({
+          question,
+          text: textAnswer,
+          imageUris: evidenceImageUris,
+        });
         dispatch({ type: "MARK_QUESTION_ANSWERED", questionId: question.id });
-        const next = await applyAnswer(report, answer);
+        const next = await applyAnswer(report, evidenceAnswer);
         reportDispatch({ type: "SET_REPORT", report: next });
         dispatch({ type: "ADD_REPORT_PREVIEW", reportId: next.id });
         dispatch({
@@ -488,6 +594,7 @@ export default function ChatScreen() {
       state.messages,
       state.pendingContext,
       t,
+      uploadPhotosForReport,
     ],
   );
 

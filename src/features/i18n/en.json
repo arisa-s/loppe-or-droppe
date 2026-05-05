@@ -10,7 +10,9 @@
     "yes": "Yes",
     "no": "No",
     "listBullet": "–",
-    "removeSymbol": "×"
+    "removeSymbol": "×",
+    "loading": "Loading…",
+    "persistenceWarning": "Saved state is unavailable right now. You can keep using the mock flow."
   },
   "saved": {
     "phase1Title": "Saved reports",
@@ -138,7 +140,8 @@
         "addPhoto": "Add photo",
         "photoCount_one": "{{count}} photo selected",
         "photoCount_other": "{{count}} photos selected",
-        "error": "I could not update the report. Please try again."
+        "error": "I could not update the report. Please try again.",
+        "photoUploadError": "I could not upload the selected photos securely. Please try again."
       },
       "summary": {
         "available": "I generated a report based on the info you provided. Confidence is {{confidence}}.\n\nAdd details from the top card, or tell me anything else here, to improve the confidence level.",
@@ -391,7 +394,8 @@
       "analysing": "Analysing the object…"
     },
     "error": {
-      "analysisFailed": "I could not update the report. Please try again."
+      "analysisFailed": "I could not update the report. Please try again.",
+      "photoUploadFailed": "I could not upload the photos securely, so I kept using the local copies for now."
     },
     "composer": {
       "inputPlaceholder": "Describe the object, asking price, or where you found it…",

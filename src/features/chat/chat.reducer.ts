@@ -20,6 +20,7 @@ const initialChatState: ChatState = {
 };
 
 export type ChatAction =
+  | { type: "HYDRATE"; state: ChatState }
   | { type: "SET_DRAFT"; draft: string }
   | { type: "STAGE_PHOTOS"; uris: string[] }
   | { type: "CLEAR_PENDING_PHOTOS" }
@@ -42,6 +43,7 @@ export type ChatAction =
   | { type: "MERGE_PENDING_CONTEXT"; contextPatch: Partial<UserContext> }
   | { type: "CLEAR_PENDING_CONTEXT" }
   | { type: "REMOVE_STAGED_PHOTO"; uri: string }
+  | { type: "REPLACE_PHOTO_URIS"; replacements: Record<string, string> }
   | { type: "RESET_FOR_NEW_ANALYSIS" };
 
 function baseMessage(role: ChatRole): Pick<ChatMessage, "id" | "createdAt" | "role"> {
@@ -93,6 +95,8 @@ function answerText(answer: Answer): string {
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "HYDRATE":
+      return action.state;
     case "SET_DRAFT":
       return { ...state, draft: action.draft };
     case "STAGE_PHOTOS":
@@ -187,6 +191,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         pendingPhotos: state.pendingPhotos.filter((u) => u !== action.uri),
+      };
+    case "REPLACE_PHOTO_URIS":
+      return {
+        ...state,
+        pendingPhotos: state.pendingPhotos.map(
+          (uri) => action.replacements[uri] ?? uri,
+        ),
+        messages: state.messages.map((message) => {
+          if (message.kind !== "photo_upload") {
+            return message;
+          }
+          return {
+            ...message,
+            imageUris: message.imageUris.map(
+              (uri) => action.replacements[uri] ?? uri,
+            ),
+          };
+        }),
       };
     case "RESET_FOR_NEW_ANALYSIS":
       return initialChatState;

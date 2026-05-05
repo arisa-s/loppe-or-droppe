@@ -17,7 +17,7 @@ No other dependencies are added without justification (see [.cursor/rules/projec
 ```
 /src
   /app
-    _layout.tsx                 # Root layout: SafeArea + i18n + ChatProvider + ReportProvider, Stack
+    _layout.tsx                 # Root layout: SafeArea + i18n + ChatProvider + ReportProvider + PersistenceBridge (hydrate / save), Stack
     index.tsx                   # Chat screen (main entry; orchestrates analyze + applyAnswer / applyPhotos / applyQuestionSkip)
     settings.tsx                # Settings + language switcher (modal presentation)
     photo-guide.tsx             # Object-specific photo guide
@@ -59,17 +59,20 @@ No other dependencies are added without justification (see [.cursor/rules/projec
   /features
     /chat
       chat.types.ts             # ChatMessage discriminated union, ChatState, ChatRole, ChatMessageKind
-      chat.reducer.ts           # Pure reducer over chat state
+      chat.reducer.ts           # Pure reducer over chat state (includes HYDRATE from persistence)
       chat.provider.tsx         # ChatProvider + useChat() hook
       chat.mockData.ts          # Reserved placeholder for richer demo flows (currently empty)
     /report
       report.types.ts           # ObjectReport, Answer, ReportImprovementForm / Submission, UserDecision, et al.
-      report.reducer.ts         # Pure reducer over report state (SET_REPORT / SET_USER_DECISION / RESET)
+      report.reducer.ts         # Pure reducer over report state (SET_REPORT / SET_USER_DECISION / RESET / HYDRATE)
       report.provider.tsx       # ReportProvider + useLatestReport() / useReportById(id) / useReportDispatch() hooks
-      report.mockData.ts        # buildMockAnalysis / buildMockDecision / buildFollowUpQuestions / buildReportImprovementForm / getPreFlightQuestions / getPostReportChatQuestions
-      report.service.ts         # generateInitial(input) -> Promise<ObjectReport>; analyze(input) -> Promise<AnalyzeResult>; parsePrice / inferCurrency / inferCountryCode helpers
-      report.updateService.ts   # generateImprovementForm / applyImprovementSubmission / applyAnswer / applyQuestionSkip / applyPhotos
+      report.mockData.ts        # buildMockAnalysis / buildMockDecision / buildFollowUpQuestions / buildReportImprovementForm / getPreFlightQuestions / getPostReportChatQuestions (mock + local scaffolding helpers)
+      report.service.ts         # generateInitial / analyze; Edge-backed generation when configured, else mock if backend unavailable
+      report.updateService.ts   # generateImprovementForm / applyImprovementSubmission / applyAnswer / applyQuestionSkip / applyPhotos (same backend-first pattern)
+      report.validation.ts      # Validates Edge Function JSON responses (contract shared with `_shared/report` in functions)
       questionnaireSummary.ts   # Helpers that turn an Answer / ReportImprovementSubmission into chat-summary text
+      /ai
+        reportApiClient.ts      # Storage uploads + functions.invoke(generate-initial-report | generate-updated-report)
     /i18n
       index.ts                  # init i18next, detect device locale, expose setAppLanguage
       en.json
@@ -82,14 +85,22 @@ No other dependencies are added without justification (see [.cursor/rules/projec
     layout.ts                   # webMaxWidthContentStyle() for web max-width
     photos.ts                   # pickPhotos() / takePhoto() with deterministic mock fallback
     recommendation.ts           # recommendationFromScore() + Tailwind class helpers
+    /persistence
+      index.ts                  # loadState, saveReport, saveChatState, saveLanguage, Storage upload helpers, storage ref URIs
+      useDisplayPhotoUris.ts    # Resolves supabase-storage:// refs to short-lived signed URLs for Image
+    /supabase
+      client.ts                 # getSupabaseClient() (null if Expo public env missing)
+      env.ts                    # tryReadSupabaseEnv / readSupabaseEnv
+      auth.ts                   # ensureSupabaseSession (anonymous sign-in when needed)
 ```
 
 ## Separation of concerns
 
 - **`features/chat`** owns chat UI state only: the message list, composer draft, staged (pending) photos, pre-flight context buffer (`pendingContext`), and the id of the latest report. It never computes valuations.
-- **`features/report`** owns the `ObjectReport` lifecycle. `report.service.ts` runs the pre-flight question loop (`analyze`) and produces the initial report (`generateInitial`). `report.updateService.ts` rebuilds the report after improvement-form submissions, chat answers, skipped questions, and new photos. The improvement form itself lives on the report (`ObjectReport.improvementForm`) and is regenerated on every update.
+- **`features/report`** owns the `ObjectReport` lifecycle. `report.service.ts` runs the pre-flight question loop (`analyze`, still client-side rule-based) and produces the initial report via `generateInitial` (OpenRouter when Edge + Supabase are configured, else mock if unconfigured). `report.updateService.ts` rebuilds the report after improvement-form submissions, chat answers, skipped questions, and new photos through the same backend-first path. The improvement form itself lives on the report (`ObjectReport.improvementForm`) and is regenerated on every update.
 - **Components** are presentational. They receive typed props and call callbacks. No fetch, no IO, no service calls inside components.
-- **Services are pure and deterministic.** Same inputs ⇒ same outputs. Update-producing services are **async** from day one (`Promise<ObjectReport>`) so call sites do not change when real AI replaces the mocks. `generateImprovementForm` is a deterministic projection used internally by both services and is synchronous because it does not produce a report update.
+- **Services** keep stable async signatures. The **mock** path is deterministic for a given input. The **Edge / OpenRouter** path is not; loading and errors are handled in the screen layer.
+- **`generateImprovementForm`** stays a deterministic projection derived from report state (sync); it does not call the network.
 
 ### Type-file dependency direction
 
@@ -260,7 +271,7 @@ While an awaited service is in flight, the screen renders a translated "analysin
 - `en.json` and `ja.json` are mandatory; every new key must land in both files in the same change.
 - Initial language is detected via `expo-localization` (`Localization.getLocales()`).
 - The language switcher lives **only** in Settings in MVP. There is no header switcher.
-- The override is held **in-memory only** in MVP — reloading the app reverts to the device locale. Persistence (e.g. AsyncStorage) is a follow-up that lands together with the persistence adapter.
+- When Supabase is configured, the chosen language is also written to the latest `chat_sessions.locale` row via `saveLanguage` (see [Backend: Supabase persistence](#backend-supabase-openrouter-and-mock-fallback)). Without Supabase, only the in-memory i18n instance reflects the change until reload.
 - Use i18next interpolation (`t('key', { count })`) — never template-literal concatenation of translated fragments.
 
 ## Header and report panel
@@ -281,11 +292,45 @@ When a report exists, a second `ChatReportHeader` panel renders below the header
 
 There is no language switcher in the header. There is no Seller-Mode toggle (Seller Mode is locked).
 
-## Future swap-in points
+## Backend: Supabase, OpenRouter, and mock fallback
 
-These are the only seams we need to keep clean for the MVP:
+### Auth / session
 
-- **Real AI** replaces the bodies of `report.service.generateInitial` / `analyze` and `report.updateService.applyImprovementSubmission` / `applyAnswer` / `applyQuestionSkip` / `applyPhotos`. The async signatures and return types are already in place, so call sites in screens stay identical. Loading and error states already exist in the orchestration above.
-- **Supabase** is added as a thin persistence adapter under `src/lib/persistence` (not created in MVP). Reducers remain pure; a top-level effect hydrates state on boot and writes through on commit. Language preference also moves here.
-- **Payments** unlock Seller Mode by flipping a single feature flag read by `SellerModeUpsellCard` and `ReportDetail`. No payment logic in the MVP.
-- **FX conversion** lands as `src/lib/currency` and replaces the converted-price placeholder defined in [report-schema.md](report-schema.md#converted-price-mvp).
+- [`getSupabaseClient()`](../src/lib/supabase/client.ts) is `null` when `EXPO_PUBLIC_SUPABASE_*` env vars are absent; persistence and Edge calls are skipped.
+- When the client exists, [`ensureSupabaseSession`](../src/lib/supabase/auth.ts) refreshes or creates a session. If none exists it uses **`signInAnonymously()`** (must be enabled in the Supabase project). Edge Functions expect a normal **`Authorization: Bearer`** from that session (**JWT verification enabled** at deploy).
+
+### Persistence adapter (`src/lib/persistence`)
+
+- **Hydration / writes:** `PersistenceBridge` in [`_layout.tsx`](../src/app/_layout.tsx) calls `loadState()` once, then applies `HYDRATE` to chat + report providers. After hydration, effects call `saveReport` when `report` changes and `saveChatState` when messages / `pendingContext` / `latestReportId` change (`draft` and `pendingPhotos` are not persisted—intentionally empty on save).
+- **Tables:** `reports` (full `object_report` JSON), `report_photos` (.Storage index + metadata), `chat_sessions` (latest report pointer, locale, pending context), `chat_messages` (one row per message JSON).
+- **Errors:** Failures other than `auth_required` surface `common.persistenceWarning`. `auth_required` is ignored for save noise when anonymous auth is not ready yet.
+
+### Report photo Storage flow
+
+- Private bucket **`report-photos`**. Object paths **`{auth.uid}/{report_public_id}/{file}`**, matching RLS in the initial migration.
+- Local file URIs in the UI are swapped for internal refs **`supabase-storage://report-photos/...`** via [`makeStoragePhotoRef`](../src/lib/persistence/index.ts) after upload.
+- **Initial report:** [`uploadInitialReportPhotos`](../src/lib/persistence/index.ts) uploads blobs **before** `generate-initial-report`; the Edge request sends `photoStoragePaths` (paths only). **Updates:** [`uploadReportPhotos`](../src/lib/persistence/index.ts) requires the report row to exist first, then uploads and passes refs into `generate-updated-report`.
+- **Display:** [`useDisplayPhotoUris`](../src/lib/persistence/useDisplayPhotoUris.ts) requests short-lived **signed URLs** for storage refs via the user-scoped client. If signing fails or the client is off, URIs fall back unchanged (local mocks still show).
+
+### Edge Functions (report generation / update)
+
+- **`generate-initial-report`:** Validates body, requires `Authorization`, builds a user-scoped Supabase client, **signed URLs** for each stored photo, calls **OpenRouter** (`_shared/openrouter.ts`) for structured JSON, validates + canonicalizes an `ObjectReport`, returns `{ ok: true, report }` (or typed error codes).
+- **`generate-updated-report`:** Same pattern for improvement submission, chat answer (with photos), question skip, or new photos only; returns updated report with incremented `version`.
+- Shared validation and scaffolding live under `supabase/functions/_shared/report/`. See [backend-setup.md](backend-setup.md) for secrets and deploy.
+
+### OpenRouter path
+
+- Model output is validated against JSON schema in shared code; **`OPENROUTER_API_KEY`** is required on the function. Missing key ⇒ structured **`backend_not_configured`** from the provider layer (same class of “backend not wired” as a missing Supabase client on the Expo side).
+
+### Mock fallback behavior
+
+- **Scope:** Only when the backend is considered **unconfigured**: no Supabase client **or** the Edge path returns an error whose code is **`backend_not_configured`** ([`isBackendUnavailableError`](../src/features/report/ai/reportApiClient.ts)). Then `generateInitial` / update helpers use [`report.mockData`](../src/features/report/report.mockData.ts) deterministic logic.
+- **Not mocked:** Auth failures (`auth_required`), invalid output, provider failures, storage/DB errors—those propagate as user-visible errors (`ReportBackendError` or chat error copy). This avoids silently fabricating a report when infra is partly broken.
+
+**Setup + verification checklist:** [backend-setup.md §7 — Smoke-test checklist](backend-setup.md#7-smoke-test-checklist).
+
+### Still future / incomplete
+
+- **Payments / Seller Mode unlock** — still placeholder UI only.
+- **FX conversion** — still placeholder in detail screen; see [Converted price](report-schema.md#converted-price-mvp) in report-schema.
+- **Saved reports list, audit tables, AI telemetry** — see [backend-setup.md — Deferred persistence](backend-setup.md#deferred-persistence-intentionally-out-of-the-initial-schema).
